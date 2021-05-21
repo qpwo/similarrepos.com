@@ -1,0 +1,25 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "dotenv": "^9.0.2",
+    "express": "^4.17.1",
+    "express-session": "^1.17.2",
+    "nodemon": "^2.0.7",
+    "randomstring": "^1.2.1"
+  },
+  "devDependencies": {
+    "@vercel/node": "^1.10.0",
+    "eslint": "^7.26.0",
+    "typescript": "^3.9.3"
+  }
+}
