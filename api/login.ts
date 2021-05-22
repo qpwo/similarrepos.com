@@ -6,6 +6,7 @@ import randomString from "randomstring";
 export const redirect_uri = process.env.HOST + "/api/redirect";
 
 export default function login(req: VercelRequest, res: VercelResponse) {
+  console.log("redirect_uri:", redirect_uri);
   // const csrf_string = randomString.generate();
   const csrf_string = jwt.encode(
     { valid: true, dump_bits: randomString.generate() },

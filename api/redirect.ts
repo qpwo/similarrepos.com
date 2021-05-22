@@ -5,6 +5,7 @@ import qs from "querystring";
 import { redirect_uri } from "./login";
 
 export default function redirect(req: VercelRequest, res: VercelResponse) {
+  console.log("redirect_uri:", redirect_uri);
   const code = req.query.code;
   // const returnedState = req.query.state;
   if (jwt.decode(req.query.state as string, process.env.JWT_SECRET!).valid) {
