@@ -3,7 +3,7 @@ import qs from "querystring";
 import randomString from "randomstring";
 import jwt from "jwt-simple";
 
-const redirect_uri = process.env.HOST + "/api/redirect";
+export const redirect_uri = process.env.HOST + "/api/redirect";
 
 export default function login(req: VercelRequest, res: VercelResponse) {
   // const csrf_string = randomString.generate();
