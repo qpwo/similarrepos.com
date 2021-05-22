@@ -1,13 +1,13 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
 import axios from "axios";
-import qs from "querystring";
 import jwt from "jwt-simple";
+import qs from "querystring";
 import { redirect_uri } from "./login";
 
 export default function redirect(req: VercelRequest, res: VercelResponse) {
   const code = req.query.code;
   // const returnedState = req.query.state;
-  if (jwt.decode(req.query.state as string, process.env.JWT_SECRET).valid) {
+  if (jwt.decode(req.query.state as string, process.env.JWT_SECRET!).valid) {
     axios
       .post(
         "https://github.com/login/oauth/access_token?" +

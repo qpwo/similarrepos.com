@@ -1,3 +1,4 @@
+import { VercelRequest, VercelResponse } from "@vercel/node";
 import axios from "axios";
 
 const query = `{
@@ -19,7 +20,7 @@ const query = `{
   }
 }`;
 
-export default function stars(req, res) {
+export default function stars(req: VercelRequest, res: VercelResponse) {
   axios
     .post(
       "https://api.github.com/graphql",

@@ -1,6 +1,7 @@
+import { VercelRequest, VercelResponse } from "@vercel/node";
 import axios from "axios";
 
-export default function user(req, res) {
+export default function user(req: VercelRequest, res: VercelResponse) {
   axios
     .get("https://api.github.com/user/public_emails", {
       headers: {

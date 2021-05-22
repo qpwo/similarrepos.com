@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
+import jwt from "jwt-simple";
 import qs from "querystring";
 import randomString from "randomstring";
-import jwt from "jwt-simple";
 
 export const redirect_uri = process.env.HOST + "/api/redirect";
 
@@ -9,7 +9,7 @@ export default function login(req: VercelRequest, res: VercelResponse) {
   // const csrf_string = randomString.generate();
   const csrf_string = jwt.encode(
     { valid: true, dump_bits: randomString.generate() },
-    process.env.JWT_SECRET
+    process.env.JWT_SECRET!
   );
   const githubAuthUrl =
     "https://github.com/login/oauth/authorize?" +
