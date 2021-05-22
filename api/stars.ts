@@ -1,14 +1,32 @@
 import axios from "axios";
-import { query } from "./main";
 
-export const stars = (req, res) => {
+const query = `{
+  user(login: "qpwo") {
+    starredRepositories(first: 100, after: "") {
+      edges {
+        cursor
+        node {
+          nameWithOwner
+        }
+      }
+    }
+  }
+  rateLimit {
+    limit
+    cost
+    remaining
+    resetAt
+  }
+}`;
+
+export default function stars(req, res) {
   axios
     .post(
       "https://api.github.com/graphql",
       { query: query },
       {
         headers: {
-          Authorization: "token " + req.session.access_token,
+          Authorization: "token " + req.body.access_token,
           "User-Agent": "Login-App",
         },
       }
@@ -20,4 +38,4 @@ export const stars = (req, res) => {
           '<p>Go back to <a href="./">log in page</a>.</p>'
       );
     });
-};
+}

@@ -1,12 +1,14 @@
+import { VercelRequest, VercelResponse } from "@vercel/node";
 import axios from "axios";
 import qs from "querystring";
+import jwt from "jwt-simple";
 
 const redirect_uri = process.env.HOST + "/redirect";
 
-export const redirect = (req, res) => {
+export default function redirect(req: VercelRequest, res: VercelResponse) {
   const code = req.query.code;
-  const returnedState = req.query.state;
-  if (req.session.csrf_string === returnedState) {
+  // const returnedState = req.query.state;
+  if (jwt.decode(req.body.csrf_string, process.env.JWT_SECRET).valid) {
     axios
       .post(
         "https://github.com/login/oauth/access_token?" +
@@ -15,16 +17,15 @@ export const redirect = (req, res) => {
             client_secret: process.env.CLIENT_SECRET,
             code: code,
             redirect_uri: redirect_uri,
-            state: req.session.csrf_string,
+            state: req.body.csrf_string,
           }),
         {}
       )
       .then((response) => {
-        req.session.access_token = qs.parse(response.data).access_token;
-
-        res.redirect("/user");
+        const access_token = qs.parse(response.data).access_token;
+        res.redirect("/user?" + qs.stringify({ access_token }));
       });
   } else {
     res.redirect("/");
   }
-};
+}
