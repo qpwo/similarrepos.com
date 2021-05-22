@@ -3,9 +3,9 @@ import qs from "querystring";
 import randomString from "randomstring";
 import jwt from "jwt-simple";
 
-const redirect_uri = process.env.HOST + "/redirect";
+const redirect_uri = process.env.HOST + "/api/redirect";
 
-export default function start(req: VercelRequest, res: VercelResponse) {
+export default function login(req: VercelRequest, res: VercelResponse) {
   // const csrf_string = randomString.generate();
   const csrf_string = jwt.encode(
     { valid: true, dump_bits: randomString.generate() },

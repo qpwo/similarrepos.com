@@ -3,7 +3,7 @@ import axios from "axios";
 import qs from "querystring";
 import jwt from "jwt-simple";
 
-const redirect_uri = process.env.HOST + "/redirect";
+const redirect_uri = process.env.HOST + "/api/redirect";
 
 export default function redirect(req: VercelRequest, res: VercelResponse) {
   const code = req.query.code;
