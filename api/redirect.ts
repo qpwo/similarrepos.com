@@ -22,8 +22,10 @@ export default function redirect(req: VercelRequest, res: VercelResponse) {
       )
       .then((response) => {
         const access_token = qs.parse(response.data).access_token;
+        console.log("response.data:", response.data);
         res.redirect("/api/user?" + qs.stringify({ access_token }));
-      });
+      })
+      .catch((err) => console.error(err));
   } else {
     res.redirect("/");
   }

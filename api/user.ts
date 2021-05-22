@@ -15,5 +15,6 @@ export default function user(req: VercelRequest, res: VercelResponse) {
           JSON.stringify(response.data) +
           '<p>Go back to <a href="./">log in page</a>.</p>'
       );
-    });
+    })
+    .catch((err) => console.error(err));
 }
