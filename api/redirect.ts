@@ -5,9 +5,7 @@ import qs from "querystring";
 import { redirect_uri } from "./login";
 
 export default function redirect(req: VercelRequest, res: VercelResponse) {
-  console.log("redirect_uri:", redirect_uri);
   const code = req.query.code;
-  // const returnedState = req.query.state;
   if (jwt.decode(req.query.state as string, process.env.JWT_SECRET!).valid) {
     axios
       .post(
@@ -23,8 +21,7 @@ export default function redirect(req: VercelRequest, res: VercelResponse) {
       )
       .then((response) => {
         const access_token = qs.parse(response.data).access_token;
-        console.log("response.data:", response.data);
-        res.redirect("/api/user?" + qs.stringify({ access_token }));
+        res.redirect("/api/stars?" + qs.stringify({ access_token }));
       })
       .catch((err) => console.error(err));
   } else {

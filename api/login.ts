@@ -1,15 +1,16 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
 import jwt from "jwt-simple";
 import qs from "querystring";
-import randomString from "randomstring";
 
 export const redirect_uri = process.env.HOST + "/api/redirect";
 
+function randomString(): string {
+  return Math.random().toString(36).substring(2);
+}
+
 export default function login(req: VercelRequest, res: VercelResponse) {
-  console.log("redirect_uri:", redirect_uri);
-  // const csrf_string = randomString.generate();
   const csrf_string = jwt.encode(
-    { valid: true, dump_bits: randomString.generate() },
+    { valid: true, dump_bits: randomString() },
     process.env.JWT_SECRET!
   );
   const githubAuthUrl =

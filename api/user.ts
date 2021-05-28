@@ -13,7 +13,8 @@ export default function user(req: VercelRequest, res: VercelResponse) {
       res.send(
         "<p>You're logged in! Here's all your emails on GitHub: </p>" +
           JSON.stringify(response.data) +
-          '<p>Go back to <a href="./">log in page</a>.</p>'
+          '<p>Go back to <a href="./">log in page</a>.</p>' +
+          `<script>window.localStorage.setItem("token", ${req.query.access_token})</script>`
       );
     })
     .catch((err) => console.error(err));
