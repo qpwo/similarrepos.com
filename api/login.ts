@@ -19,7 +19,6 @@ export default function login(req: VercelRequest, res: VercelResponse) {
       client_id: process.env.CLIENT_ID,
       redirect_uri: redirect_uri,
       state: csrf_string,
-      // scope: "user:email",
     });
   res.redirect(githubAuthUrl);
 }
