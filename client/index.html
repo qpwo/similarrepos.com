@@ -9,6 +9,22 @@
 
   <body>
     <p>SimilarRepos</p>
-    <button href="/api/start">Log In</button>
+
+    <div id="login_holder"></div>
+
+    <div style="visibility: hidden">
+      <button
+        onclick="location.href='/api/login'"
+        type="button"
+        id="login_button"
+      >
+        Get API token from GitHub
+      </button>
+
+      <button type="button" onclick="logout()" id="logout_button">
+        Log out
+      </button>
+    </div>
+    <script src="script.js"></script>
   </body>
 </html>

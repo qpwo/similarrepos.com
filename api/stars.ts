@@ -28,7 +28,6 @@ export default function stars(req: VercelRequest, res: VercelResponse) {
       {
         headers: {
           Authorization: "token " + req.query.access_token,
-          "User-Agent": "Login-App",
         },
       }
     )
@@ -36,7 +35,7 @@ export default function stars(req: VercelRequest, res: VercelResponse) {
       res.send(
         "<p>Response from graqhql: </p>" +
           JSON.stringify(response.data) +
-          '<p>Go back to <a href="./">log in page</a>.</p>' +
+          '<p>Go back to <a href="/">log in page</a>.</p>' +
           `<script>window.localStorage.setItem("token", "${req.query.access_token}")</script>`
       );
     });
