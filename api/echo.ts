@@ -5,6 +5,5 @@ export default function echo(req: VercelRequest, res: VercelResponse) {
     body: req.body,
     query: req.query,
     cookies: req.cookies,
-    // foo: req.
   });
 }
