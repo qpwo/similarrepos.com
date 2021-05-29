@@ -10,22 +10,28 @@
   <body>
     <p>SimilarRepos</p>
 
-    <div id="login_holder"></div>
+    <div id="loginHolder"></div>
     <div>
-      All stars of user:
-      <div id="all_stars"></div>
+      <input type="text" id="repo" />
+      <button type="button" onclick="doRepo()"></button>
+
+      <div id="allStars"></div>
+    </div>
+    <div>
+      Remaining queries:
+      <div id="remainingQueries"></div>
     </div>
 
     <div style="visibility: hidden">
       <button
         onclick="location.href='/api/login'"
         type="button"
-        id="login_button"
+        id="loginButton"
       >
         Get API token from GitHub
       </button>
 
-      <button type="button" onclick="logout()" id="logout_button">
+      <button type="button" onclick="logout()" id="logoutButton">
         Log out
       </button>
     </div>
