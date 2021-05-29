@@ -22,5 +22,7 @@ function logout() {
     updateLoginButton()
 }
 
-let collector = makeDefaultDict((name) => { return { done: false, items: [], name: name } })
-batchLoop(['gfx-rs/naga'], 'stargazers', collector).then(() => all_stars_div.innerHTML = collector['gfx-rs/naga'].items)
+let collector = makeDefaultDict((name) => { return { failed: false, done: false, items: [], name: name } })
+
+const someRepos = ["grovesNL", "doppioandante", "anderejd", "fkaa", "doppioslash", "rukai", "nickkuk", "non-descriptive", "ozkriff", "natpbs", "kocsis1david", "kooparse", "phrohdoh", "MarkMcCaskey", "ryanrightmer", "jplatte", "Pacoup", "ColinKinloch", "milkowski", "attliaLin", "bwasty", "mitchmindtree", "unrelentingtech", "khernyo", "danaugrs", "Hossein-Noroozpour", "Atul9", "maeln", "xgalaxy", "rroohhh", "simonrepp", "adamnemecek", "kubo39"]
+batchLoop(someRepos, 'stars', collector).then(() => all_stars_div.innerHTML = "all done!")
