@@ -22,4 +22,5 @@ function logout() {
     updateLoginButton()
 }
 
-batchLoop(['gfx-rs/naga'], 'stargazers').then(things => all_stars_div.innerHTML = things)
+let collector = makeDefaultDict((name) => { return { done: false, items: [], name: name } })
+batchLoop(['gfx-rs/naga'], 'stargazers', collector).then(() => all_stars_div.innerHTML = collector['gfx-rs/naga'].items)

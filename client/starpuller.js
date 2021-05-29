@@ -2,11 +2,15 @@
 const token = localStorage.getItem("token")
 const rateLimitQuery = "rateLimit { cost remaining resetAt }"
 
+function has(object, property) {
+    return Object.prototype.hasOwnProperty.call(object, property)
+}
+
 function makeDefaultDict(factory) {
     return new Proxy({}, {
         get(target, name) {
-            if (!(name in target)) {
-                target[name] = factory()
+            if (!(has(target, name))) {
+                target[name] = factory(name)
             }
             return target[name]
         }
@@ -44,9 +48,8 @@ async function runQuery(query) {
     return json
 }
 
-async function batchLoop(items, mode, batch_size = 100) {
+async function batchLoop(items, mode, collector, batch_size = 100) {
     const item = items[0]
-    // collector = dict()
     let part1, part2, makeQuery
     if (mode == "stars") {
         part1 = "starredRepositories"
@@ -61,7 +64,6 @@ async function batchLoop(items, mode, batch_size = 100) {
     }
     const uid_of = makeDefaultDict(makeUid)
     let cursors = {}
-    let things = []
     while (true) {
         // TODO: use promises or async or whatever
         let queryPart = makeQuery(item, uid_of[item], cursors[item])
@@ -69,9 +71,12 @@ async function batchLoop(items, mode, batch_size = 100) {
         const result = await runQuery(query)
         const uid = uid_of[item]
         const edges = result["data"][uid][part1]["edges"]
-        if (edges.length < 100) { break }
+        if (edges.length < 100) {
+            collector[item].done = true
+            break
+        }
         cursors[item] = edges[edges.length - 1]["cursor"]
-        edges.forEach(e => things.push(e['node'][part2]))
+        edges.forEach(e => collector[item].items.push(e['node'][part2]))
     }
-    return things
+    return
 }
