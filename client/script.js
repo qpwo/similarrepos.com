@@ -22,4 +22,4 @@ function logout() {
     updateLoginButton()
 }
 
-batchLoop(['qpwo'], 'stars').then(things => all_stars_div.innerHTML = things)
+batchLoop(['gfx-rs/naga'], 'stargazers').then(things => all_stars_div.innerHTML = things)
