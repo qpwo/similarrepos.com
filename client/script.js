@@ -1,6 +1,9 @@
-const login_holder = document.querySelector("#login_holder")
-const logout_button = document.querySelector("#logout_button")
-const login_button = document.querySelector("#login_button")
+"use strict"
+function qs(string) { return document.querySelector(string) }
+const login_holder = qs("#login_holder")
+const logout_button = qs("#logout_button")
+const login_button = qs("#login_button")
+const all_stars_div = qs("#all_stars")
 
 function updateLoginButton() {
     while (login_holder.firstChild) {
@@ -18,3 +21,5 @@ function logout() {
     localStorage.removeItem("token")
     updateLoginButton()
 }
+
+batchLoop(['qpwo'], 'stars').then(things => all_stars_div.innerHTML = things)

@@ -32,6 +32,7 @@ function userQuery(user, alias = "", cursor = "") {
 
 
 async function runQuery(query) {
+    console.log("Running query:", query)
     const response = await fetch("https://api.github.com/graphql", {
         method: 'POST',
         body: JSON.stringify({ query: query }),
@@ -43,9 +44,9 @@ async function runQuery(query) {
     return json
 }
 
-function batchLoop(items, mode, batch_size = 100) {
+async function batchLoop(items, mode, batch_size = 100) {
     const item = items[0]
-    collector = dict()
+    // collector = dict()
     let part1, part2, makeQuery
     if (mode == "stars") {
         part1 = "starredRepositories"
@@ -58,18 +59,19 @@ function batchLoop(items, mode, batch_size = 100) {
     } else {
         throw new Error()
     }
-    uid_of = makeDefaultDict(makeUid)
-    cursors = {}
-    let edges = []
+    const uid_of = makeDefaultDict(makeUid)
+    let cursors = {}
     let things = []
-    do {
+    while (true) {
         // TODO: use promises or async or whatever
-        let queryPart = makeQuery(item, uid_of[item], cursor[item])
+        let queryPart = makeQuery(item, uid_of[item], cursors[item])
         let query = `{ ${queryPart} ${rateLimitQuery} }`
-        const result = run_query(query)
+        const result = await runQuery(query)
         const uid = uid_of[item]
-        edges = result["data"][uid][part1]["edges"]
-        things.forEach(e => thing.push(e['node'][part2]))
-    } while (len(edges) >= 100)
+        const edges = result["data"][uid][part1]["edges"]
+        if (edges.length < 100) { break }
+        cursors[item] = edges[edges.length - 1]["cursor"]
+        edges.forEach(e => things.push(e['node'][part2]))
+    }
     return things
 }
