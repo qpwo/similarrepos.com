@@ -8,19 +8,18 @@
   </head>
 
   <body>
-    <p>SimilarRepos</p>
+    <h1>
+      SimilarRepos (<a href="https://github.com/qpwo/similarrepos">GH</a>)
+    </h1>
+    <h2>Seriously alpha quality</h2>
 
     <div id="loginHolder"></div>
     <div>
-      <input
-        type="text"
-        id="repo"
-        placeholder="someuser/theirrepo"
-        value="gfx-rs/naga"
-      />
+      <input type="text" id="repo" placeholder="someuser/theirrepo" />
       <button type="button" onclick="doRepo()">
         Find similar repositories
       </button>
+      (check js console logs for progress)
 
       <div id="allStars"></div>
 
@@ -39,6 +38,7 @@
         onclick="location.href='/api/login'"
         type="button"
         id="loginButton"
+        style="background-color: greenyellow"
       >
         Get API token from GitHub
       </button>

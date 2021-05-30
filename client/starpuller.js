@@ -143,7 +143,7 @@ async function batchLoop(items, mode, batchSize = 50) {
                 remove(currentItems, item)
                 coll_i.done = true
                 coll_i.failed = true
-                localforage.setItem(item, coll_i)
+                await localforage.setItem(item, coll_i)
                 continue
             }
             const edges = result["data"][uid][part1]["edges"]
@@ -158,7 +158,7 @@ async function batchLoop(items, mode, batchSize = 50) {
                 cursors[item] = cursor
                 coll_i.lastCursor = cursor
             }
-            localforage.setItem(item, coll_i)
+            await localforage.setItem(item, coll_i)
         }
         if (currentItems.length < batchSize && pointer < items.length) {
             const addCount = Math.min(batchSize - currentItems.length, items.length - pointer)
