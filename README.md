@@ -1,3 +1,3 @@
-# similarrepos
+# [similarrepos](https://similarrepos.com)
 
-Client: Should get the starcount, then start pulling star data, and maybe get a random subset, up to 1000 or something, from throughout the stargazers.
+Find similar/related repositories on github using co-stargazers, like Yasiv's ghindex but with graphql api that doesn't eat your query limit.
