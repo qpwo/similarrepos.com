@@ -1,0 +1,12 @@
+{
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "html",
+        "typescriptreact"
+    ],
+    "eslint.workingDirectories": [
+        "./api",
+        "./preact"
+    ],
+}
