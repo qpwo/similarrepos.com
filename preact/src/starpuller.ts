@@ -7,17 +7,6 @@ function has(object: {}, property: PropertyKey) {
     return Object.prototype.hasOwnProperty.call(object, property)
 }
 
-function makeDefaultDict<T>(factory: (_: PropertyKey) => T) {
-    return new Proxy({} as object, {
-        get(target: object, name: PropertyKey): T {
-            if (!(has(target, name))) {
-                target[name] = factory(name)
-            }
-            return target[name]
-        }
-    })
-}
-
 function makeUid() {
     const length = 7
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
@@ -28,27 +17,27 @@ function makeUid() {
     return result
 }
 
-function repoQuery(repo, alias = "", cursor = "") {
+function repoQuery(repo: string, alias = "", cursor = ""): string {
     const [owner, name] = repo.split("/")
     if (cursor) { cursor = `, after: "${cursor}"` }
     if (alias) { alias = `${alias}: ` }
     return `${alias}repository(owner: "${owner}", name: "${name}") { stargazers(first: 100${cursor}) { edges { cursor node { login } } } }`
 }
 
-function userQuery(user, alias = "", cursor = "") {
+function userQuery(user: string, alias = "", cursor = ""): string {
     if (cursor) { cursor = `, after: "${cursor}"` }
     if (alias) { alias = `${alias}: ` }
     return `${alias}user(login: "${user}") { starredRepositories(first: 100${cursor}) { edges { cursor node { nameWithOwner } } } }`
 }
 
-function stargazerCountQuery(repo, alias = "") {
+function stargazerCountQuery(repo: string, alias = ""): string {
     const [owner, name] = repo.split("/")
     if (alias) { alias = `${alias}: ` }
     return `${alias}repository(owner: "${owner}", name: "${name}") { stargazerCount }`
 }
 
 
-async function runQuery(query) {
+async function runQuery(query: string): Promise<Record<string, any> | typeof failure> {
     console.log("Running query:", query)
     try {
         const response = await fetch("https://api.github.com/graphql", {
@@ -66,7 +55,7 @@ async function runQuery(query) {
     }
 }
 
-function remove(array, item) {
+function remove<T>(array: T[], item: T): void {
     const i = array.indexOf(item)
     if (i == -1) {
         throw new Error(`remove: ${item} not in ${array}`)
@@ -77,14 +66,23 @@ function remove(array, item) {
 const maxStars = 50
 const maxStargazers = 100
 
-const asyncFilter = async (arr, predicate) => {
+async function asyncFilter<T>(arr: T[], predicate: (_: T) => Promise<boolean>) {
     const results = await Promise.all(arr.map(predicate))
 
     return arr.filter((_v, index) => results[index])
 }
 
-function makeItemInfo(name) {
-    return { failed: false, done: false, items: [], name: name, stargazerCount: null }
+interface Entry {
+    failed: boolean
+    done: boolean
+    items: string[]
+    name: string
+    stargazerCount?: number
+    lastCursor?: string
+}
+
+function makeItemInfo(name: string): Entry {
+    return { failed: false, done: false, items: [], name: name, stargazerCount: undefined }
 }
 
 let uids: { [k: string]: string } = {}
@@ -97,40 +95,40 @@ function uidOf(s: string): string {
 export async function batchLoop(items: string[], mode: "stars" | "stargazers", batchSize = 50) {
     // const item = items[0]
     // TODO: pack variables into objects
-    let part1, part2, makeQuery, max
-    if (mode == "stars") {
-        part1 = "starredRepositories"
-        part2 = "nameWithOwner"
-        makeQuery = userQuery
-        max = maxStars
-    } else if (mode == "stargazers") {
-        part1 = "stargazers"
-        part2 = "login"
-        makeQuery = repoQuery
-        max = maxStargazers
-    } else {
-        throw new Error()
-    }
+    const foo =
+        mode == "stars"
+            ? {
+                part1: "starredRepositories",
+                part2: "nameWithOwner",
+                makeQuery: userQuery,
+                max: maxStars,
+            }
+            : {
+                part1: "stargazers",
+                part2: "login",
+                makeQuery: repoQuery,
+                max: maxStargazers,
+            }
     console.log("unfiltered items:", items)
     items = await asyncFilter(items, async (item) => {
-        const lfi = await localforage.getItem(item)
+        const lfi = await localforage.getItem(item) as Entry
         return lfi == null || lfi.done != true
     })
     console.log("filtered items:", items)
     // const uidOf = makeDefaultDict(makeUid)
     // const uidOf = (s: string) => has(uids, s) ? uids[s] : 
-    let cursors = {}
+    let cursors: { [key: string]: string } = {}
     let currentItems = items.slice(items.length - batchSize)
     let pointer = currentItems.length
     for (const item of items) {
-        const x = await localforage.getItem(item)
-        cursors[item] = x ? x.lastCursor : undefined
+        const x = await localforage.getItem(item) as Entry
+        if (x.lastCursor) { cursors[item] = x.lastCursor }
     }
     while (currentItems.length > 0) {
         // TODO: save last cursor as you go, and restart from last cursor if possible
         // TODO maybe: use sets so you never get duplicate entries in star list.
         // TODO: use promises or async or whatever
-        const queryParts = currentItems.map(item => makeQuery(item, uidOf(item), cursors[item]))
+        const queryParts = currentItems.map(item => foo.makeQuery(item, uidOf(item), cursors[item]))
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query)
         if (result === failure) {
@@ -139,7 +137,7 @@ export async function batchLoop(items: string[], mode: "stars" | "stargazers", b
             break
         }
         for (const item of [...currentItems]) {
-            let coll_i = await localforage.getItem(item)
+            let coll_i = await localforage.getItem(item) as Entry | null
             if (coll_i == null) {
                 coll_i = makeItemInfo(item)
             }
@@ -153,9 +151,9 @@ export async function batchLoop(items: string[], mode: "stars" | "stargazers", b
                 await localforage.setItem(item, coll_i)
                 continue
             }
-            const edges = result["data"][uid][part1]["edges"]
-            edges.forEach(e => coll_i.items.push(e['node'][part2]))
-            if (edges.length < 100 || coll_i.items.length >= max) {
+            const edges = result["data"][uid][foo.part1]["edges"]
+            edges.forEach((e: any) => coll_i!.items.push(e['node'][foo.part2]))
+            if (edges.length < 100 || coll_i.items.length >= foo.max) {
                 remove(currentItems, item)
                 coll_i.done = true
                 console.log(`Finished item "${item}". There are ${currentItems.length} currentItems and ${items.length - pointer} left after that.`)
@@ -176,10 +174,10 @@ export async function batchLoop(items: string[], mode: "stars" | "stargazers", b
     return
 }
 
-async function getStarCounts(items, batchSize = 200) {
-    items = await asyncFilter(items, async (item) => {
-        const lfi = await localforage.getItem(item)
-        return lfi == null || lfi.stargazerCount == null
+export async function getStarCounts(items: string[], batchSize = 200) {
+    items = await asyncFilter(items, async (item: string) => {
+        const entry = await localforage.getItem(item) as Entry
+        return entry == null || entry.stargazerCount == null
     })
     for (let pointer = 0; pointer < items.length; pointer += batchSize) {
         console.log(`Getting stargazer counts ${pointer}:${pointer + batchSize} out of ${items.length}`)
@@ -193,7 +191,7 @@ async function getStarCounts(items, batchSize = 200) {
         }
         for (const item of [...currentItems]) {
             // TODO: Could be in a separate table for faster read/write
-            let coll_i = await localforage.getItem(item)
+            let coll_i = await localforage.getItem(item) as Entry | null
             if (coll_i == null) {
                 coll_i = makeItemInfo(item)
             }
