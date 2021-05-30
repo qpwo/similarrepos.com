@@ -71,6 +71,13 @@ function remove(array, item) {
 const maxStars = 50
 const maxStargazers = 100
 
+const asyncFilter = async (arr, predicate) => {
+    const results = await Promise.all(arr.map(predicate))
+
+    return arr.filter((_v, index) => results[index])
+}
+
+
 // TODO: mode for getting the stargazer count of many repos
 async function batchLoop(items, mode, collector, batchSize = 50) {
     // const item = items[0]
@@ -89,11 +96,15 @@ async function batchLoop(items, mode, collector, batchSize = 50) {
     } else {
         throw new Error()
     }
+    console.log("unfiltered items:", items)
+    items = await asyncFilter(items, async (item) => (await localforage.getItem(item)) == null)
+    console.log("filtered items:", items)
     const uidOf = makeDefaultDict(makeUid)
     let cursors = {}
     let currentItems = items.slice(items.length - batchSize)
     let pointer = currentItems.length
     while (currentItems.length > 0) {
+        // TODO: save last cursor as you go, and restart from last cursor if possible
         // TODO: use promises or async or whatever
         const queryParts = currentItems.map(item => makeQuery(item, uidOf[item], cursors[item]))
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
@@ -104,24 +115,31 @@ async function batchLoop(items, mode, collector, batchSize = 50) {
             break
         }
         for (const item of [...currentItems]) {
+            let coll_i = await localforage.getItem(item)
+            if (coll_i == null) {
+                coll_i = { failed: false, done: false, items: [], name: name }
+            }
+
             const uid = uidOf[item]
             if (!has(result["data"], uid)) {
                 console.log(`Dropping item ${item} because it caused errors`)
                 remove(currentItems, item)
-                collector[item].done = true
-                collector[item].failed = true
+                coll_i.done = true
+                coll_i.failed = true
+                localforage.setItem(item, coll_i)
                 continue
             }
             const edges = result["data"][uid][part1]["edges"]
-            edges.forEach(e => collector[item].items.push(e['node'][part2]))
-            if (edges.length < 100 || collector[item].items.length >= max) {
+            edges.forEach(e => coll_i.items.push(e['node'][part2]))
+            if (edges.length < 100 || coll_i.items.length >= max) {
                 remove(currentItems, item)
-                collector[item].done = true
+                coll_i.done = true
                 console.log(`Finished item "${item}". There are ${currentItems.length} currentItems and ${items.length - pointer} left after that.`)
                 // NOTE: if this was async generator then we could yield item here.
             } else {
                 cursors[item] = edges[edges.length - 1]["cursor"]
             }
+            localforage.setItem(item, coll_i)
         }
         if (currentItems.length < batchSize && pointer < items.length) {
             const addCount = Math.min(batchSize - currentItems.length, items.length - pointer)
