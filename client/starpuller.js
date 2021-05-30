@@ -1,6 +1,7 @@
 "use strict"
 const token = localStorage.getItem("token")
 const rateLimitQuery = "rateLimit { cost remaining resetAt }"
+const failure = Symbol("failure")
 
 function has(object, property) {
     return Object.prototype.hasOwnProperty.call(object, property)
@@ -43,15 +44,20 @@ function userQuery(user, alias = "", cursor = "") {
 
 async function runQuery(query) {
     console.log("Running query:", query)
-    const response = await fetch("https://api.github.com/graphql", {
-        method: 'POST',
-        body: JSON.stringify({ query: query }),
-        headers: {
-            Authorization: "token " + token,
-        }
-    })
-    const json = await response.json()
-    return json
+    try {
+        const response = await fetch("https://api.github.com/graphql", {
+            method: 'POST',
+            body: JSON.stringify({ query: query }),
+            headers: {
+                Authorization: "token " + token,
+            }
+        })
+        const json = await response.json()
+        return json
+    } catch (e) {
+        console.error(e)
+        return failure
+    }
 }
 
 function remove(array, item) {
@@ -62,19 +68,24 @@ function remove(array, item) {
     array.splice(i, 1)
 }
 
-const maxStars = 500
+const maxStars = 50
+const maxStargazers = 100
 
-async function batchLoop(items, mode, collector, batchSize = 100) {
+// TODO: mode for getting the stargazer count of many repos
+async function batchLoop(items, mode, collector, batchSize = 50) {
     // const item = items[0]
-    let part1, part2, makeQuery
+    // TODO: pack variables into objects
+    let part1, part2, makeQuery, max
     if (mode == "stars") {
         part1 = "starredRepositories"
         part2 = "nameWithOwner"
         makeQuery = userQuery
+        max = maxStars
     } else if (mode == "stargazers") {
         part1 = "stargazers"
         part2 = "login"
         makeQuery = repoQuery
+        max = maxStargazers
     } else {
         throw new Error()
     }
@@ -86,7 +97,12 @@ async function batchLoop(items, mode, collector, batchSize = 100) {
         // TODO: use promises or async or whatever
         const queryParts = currentItems.map(item => makeQuery(item, uidOf[item], cursors[item]))
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
-        const result = await runQuery(query) // TODO: handle failure
+        const result = await runQuery(query)
+        if (result === failure) {
+            console.error("query failed")
+            // TODO: retry it or something?
+            break
+        }
         for (const item of [...currentItems]) {
             const uid = uidOf[item]
             if (!has(result["data"], uid)) {
@@ -98,7 +114,7 @@ async function batchLoop(items, mode, collector, batchSize = 100) {
             }
             const edges = result["data"][uid][part1]["edges"]
             edges.forEach(e => collector[item].items.push(e['node'][part2]))
-            if (edges.length < 100 || collector[item].items.length >= maxStars) {
+            if (edges.length < 100 || collector[item].items.length >= max) {
                 remove(currentItems, item)
                 collector[item].done = true
                 console.log(`Finished item "${item}". There are ${currentItems.length} currentItems and ${items.length - pointer} left after that.`)

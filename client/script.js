@@ -4,6 +4,7 @@ const loginHolder = qs("#loginHolder")
 const logoutButton = qs("#logoutButton")
 const loginButton = qs("#loginButton")
 const allStarsDiv = qs("#allStars")
+const repoInput = qs("#repo")
 
 function updateLoginButton() {
     while (loginHolder.firstChild) {
@@ -22,6 +23,16 @@ function logout() {
 }
 
 let collector = makeDefaultDict((name) => { return { failed: false, done: false, items: [], name: name } })
-
-const someRepos = ["grovesNL", "doppioandante", "anderejd", "fkaa", "doppioslash", "rukai", "nickkuk", "non-descriptive", "ozkriff", "natpbs", "kocsis1david", "kooparse", "phrohdoh", "MarkMcCaskey", "ryanrightmer", "jplatte", "Pacoup", "ColinKinloch", "milkowski", "attliaLin", "bwasty", "mitchmindtree", "unrelentingtech", "khernyo", "danaugrs", "Hossein-Noroozpour", "Atul9", "maeln", "xgalaxy", "rroohhh", "simonrepp", "adamnemecek", "kubo39"]
-batchLoop(someRepos, 'stars', collector).then(() => allStarsDiv.innerHTML = "all done!")
+async function doRepo() {
+    const repo = repoInput.value
+    console.log("Getting stargazers of repo")
+    await batchLoop([repo], 'stargazers', collector)
+    console.log("Got stargazers of repo")
+    if (!collector[repo].failed) {
+        console.log(`Getting stars of ${collector[repo].items.length} stargazers`)
+        await batchLoop(collector[repo].items, 'stars', collector)
+        console.log("Got stars of stargazers")
+    }
+    // TODO:
+    // console.log("Got stars of stargazers. Getting stargazer counts of costarred repos.")
+}

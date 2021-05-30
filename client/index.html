@@ -12,8 +12,15 @@
 
     <div id="loginHolder"></div>
     <div>
-      <input type="text" id="repo" />
-      <button type="button" onclick="doRepo()"></button>
+      <input
+        type="text"
+        id="repo"
+        placeholder="someuser/theirrepo"
+        value="gfx-rs/naga"
+      />
+      <button type="button" onclick="doRepo()">
+        Find similar repositories
+      </button>
 
       <div id="allStars"></div>
     </div>
