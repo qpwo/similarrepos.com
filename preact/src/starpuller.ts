@@ -206,3 +206,40 @@ export async function getStarCounts(items: string[], batchSize = 200) {
     }
     return
 }
+
+
+function getCountOf(array: string[]): [string, number][] {
+    var unsorted: { [k: string]: number } = {}
+    array.forEach(val => unsorted[val] = (unsorted[val] || 0) + 1)
+    // var sorted = {}
+    return Object.entries(unsorted).sort(([k1, v1], [k2, v2]) => v2 - v1)
+    // return sorted
+}
+
+async function asyncMap<T, S>(arr: T[], f: (t: T) => Promise<S>): Promise<S[]> {
+    return await Promise.all(arr.map(f))
+}
+
+// let collector = makeDefaultDict((name) => { return { failed: false, done: false, items: [], name: name } })
+async function doRepo(repo: string) {
+    console.log("Getting stargazers of repo")
+    await batchLoop([repo], 'stargazers')
+    console.log("Got stargazers of repo")
+    // if (!collector[repo].failed) {
+    const repo_items = (await localforage.getItem(repo) as Entry).items
+    console.log(`Getting stars of ${repo_items.length} stargazers`)
+    await batchLoop(repo_items, 'stars')
+    console.log("Got stars of stargazers")
+    // }
+    // TODO:
+    console.log("Getting stargazer counts of costarred repos.")
+    const itemsOf = async (user: string) => (await localforage.getItem(user) as Entry).items
+    const countOf = getCountOf((await asyncMap(repo_items, itemsOf)).flat())
+    const goodCountOf = countOf.filter(([key, val]) => val > 3)
+    await getStarCounts(goodCountOf.map(([key, val]) => key))
+    const weightedCountOf = (await asyncMap(goodCountOf, async ([repo, count]) => [repo, count > 3 ? count / (await localforage.getItem(repo) as Entry).stargazerCount! : -1]))
+        .sort(([k1, v1], [k2, v2]) => (v2 as number) - (v1 as number))
+    console.log("goodCountOf:", goodCountOf)
+    console.log("weightedCountOf:", weightedCountOf)
+    return JSON.stringify(weightedCountOf.slice(0, 100).map(([repo, score]) => repo))
+}
