@@ -5,6 +5,7 @@ const logoutButton = qs("#logoutButton")
 const loginButton = qs("#loginButton")
 const allStarsDiv = qs("#allStars")
 const repoInput = qs("#repo")
+const similarDiv = qs("#similar")
 
 function updateLoginButton() {
     while (loginHolder.firstChild) {
@@ -47,8 +48,13 @@ async function doRepo() {
     console.log("Got stars of stargazers")
     // }
     // TODO:
-    // console.log("Got stars of stargazers. Getting stargazer counts of costarred repos.")
+    console.log("Getting stargazer counts of costarred repos.")
     const itemsOf = async (user) => (await localforage.getItem(user)).items
     const countOf = getCountOf((await asyncMap(repo_items, itemsOf)).flat())
-    console.log(countOf)
+    await getStarCounts(countOf.map(([key, val]) => key))
+    const weightedCountOf = (await asyncMap(countOf, async ([repo, count]) => [repo, count > 3 ? count / (await localforage.getItem(repo)).stargazerCount : -1]))
+        .sort(([k1, v1], [k2, v2]) => v2 - v1)
+    console.log("countOf:", countOf)
+    console.log("weightedCountOf:", weightedCountOf)
+    similarDiv.innerText = JSON.stringify(weightedCountOf.slice(0, 100).map(([repo, score]) => repo))
 }
