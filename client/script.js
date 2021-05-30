@@ -22,6 +22,18 @@ function logout() {
     updateLoginButton()
 }
 
+async function asyncMap(arr, f) {
+    return await Promise.all(arr.map(f))
+}
+
+function getCountOf(array) {
+    var unsorted = {}
+    array.forEach(val => unsorted[val] = (unsorted[val] || 0) + 1)
+    // var sorted = {}
+    return Object.entries(unsorted).sort(([k1, v1], [k2, v2]) => v2 - v1)
+    // return sorted
+}
+
 // let collector = makeDefaultDict((name) => { return { failed: false, done: false, items: [], name: name } })
 async function doRepo() {
     const repo = repoInput.value
@@ -36,4 +48,7 @@ async function doRepo() {
     // }
     // TODO:
     // console.log("Got stars of stargazers. Getting stargazer counts of costarred repos.")
+    const itemsOf = async (user) => (await localforage.getItem(user)).items
+    const countOf = getCountOf((await asyncMap(repo_items, itemsOf)).flat())
+    console.log(countOf)
 }
