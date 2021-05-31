@@ -23,6 +23,7 @@
         "@typescript-eslint"
     ],
     "rules": {
-        "@typescript-eslint/member-delimiter-style": 0
+        "@typescript-eslint/member-delimiter-style": 0,
+        "jest/no-deprecated-functions": 0
     }
 }

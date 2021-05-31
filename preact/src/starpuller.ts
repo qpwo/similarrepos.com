@@ -3,7 +3,7 @@ const token = localStorage.getItem("token")
 const rateLimitQuery = "rateLimit { cost remaining resetAt }"
 const failure = Symbol("failure")
 
-function has(object: {}, property: PropertyKey) {
+function has(object: Record<PropertyKey, unknown>, property: PropertyKey) {
     return Object.prototype.hasOwnProperty.call(object, property)
 }
 
@@ -42,9 +42,9 @@ async function runQuery(query: string): Promise<Record<string, any> | typeof fai
     try {
         const response = await fetch("https://api.github.com/graphql", {
             method: 'POST',
-            body: JSON.stringify({ query: query }),
+            body: JSON.stringify({ query }),
             headers: {
-                Authorization: "token " + token,
+                Authorization: `token ${token}`,
             }
         })
         const json = await response.json()
@@ -82,17 +82,17 @@ interface Entry {
 }
 
 function makeItemInfo(name: string): Entry {
-    return { failed: false, done: false, items: [], name: name, stargazerCount: undefined }
+    return { failed: false, done: false, items: [], name, stargazerCount: undefined }
 }
 
-let uids: { [k: string]: string } = {}
+const uids: { [k: string]: string } = {}
 function uidOf(s: string): string {
     if (!has(uids, s)) { uids[s] = makeUid() }
     return uids[s]
 }
 
 // TODO: mode for getting the stargazer count of many repos
-export async function batchLoop(items: string[], mode: "stars" | "stargazers", batchSize = 50) {
+export async function batchLoop(items: string[], mode: "stars" | "stargazers", batchSize = 50): Promise<void> {
     // const item = items[0]
     // TODO: pack variables into objects
     const foo =
@@ -117,8 +117,8 @@ export async function batchLoop(items: string[], mode: "stars" | "stargazers", b
     console.log("filtered items:", items)
     // const uidOf = makeDefaultDict(makeUid)
     // const uidOf = (s: string) => has(uids, s) ? uids[s] : 
-    let cursors: { [key: string]: string } = {}
-    let currentItems = items.slice(items.length - batchSize)
+    const cursors: { [key: string]: string } = {}
+    const currentItems = items.slice(items.length - batchSize)
     let pointer = currentItems.length
     for (const item of items) {
         const x = await localforage.getItem(item) as Entry
@@ -174,14 +174,14 @@ export async function batchLoop(items: string[], mode: "stars" | "stargazers", b
     return
 }
 
-export async function getStarCounts(items: string[], batchSize = 200) {
+export async function getStarCounts(items: string[], batchSize = 200): Promise<void> {
     items = await asyncFilter(items, async (item: string) => {
         const entry = await localforage.getItem(item) as Entry
         return entry == null || entry.stargazerCount == null
     })
     for (let pointer = 0; pointer < items.length; pointer += batchSize) {
         console.log(`Getting stargazer counts ${pointer}:${pointer + batchSize} out of ${items.length}`)
-        let currentItems = items.slice(pointer, pointer + batchSize)
+        const currentItems = items.slice(pointer, pointer + batchSize)
         const queryParts = currentItems.map(item => stargazerCountQuery(item, uidOf(item)))
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query)
@@ -209,10 +209,10 @@ export async function getStarCounts(items: string[], batchSize = 200) {
 
 
 function getCountOf(array: string[]): [string, number][] {
-    var unsorted: { [k: string]: number } = {}
+    const unsorted: { [k: string]: number } = {}
     array.forEach(val => unsorted[val] = (unsorted[val] || 0) + 1)
     // var sorted = {}
-    return Object.entries(unsorted).sort(([k1, v1], [k2, v2]) => v2 - v1)
+    return Object.entries(unsorted).sort(([, v1], [, v2]) => v2 - v1)
     // return sorted
 }
 
@@ -221,7 +221,7 @@ async function asyncMap<T, S>(arr: T[], f: (t: T) => Promise<S>): Promise<S[]> {
 }
 
 // let collector = makeDefaultDict((name) => { return { failed: false, done: false, items: [], name: name } })
-async function doRepo(repo: string) {
+export async function doRepo(repo: string): Promise<string> {
     console.log("Getting stargazers of repo")
     await batchLoop([repo], 'stargazers')
     console.log("Got stargazers of repo")
@@ -235,11 +235,11 @@ async function doRepo(repo: string) {
     console.log("Getting stargazer counts of costarred repos.")
     const itemsOf = async (user: string) => (await localforage.getItem(user) as Entry).items
     const countOf = getCountOf((await asyncMap(repo_items, itemsOf)).flat())
-    const goodCountOf = countOf.filter(([key, val]) => val > 3)
-    await getStarCounts(goodCountOf.map(([key, val]) => key))
+    const goodCountOf = countOf.filter(([, val]) => val > 3)
+    await getStarCounts(goodCountOf.map(([key,]) => key))
     const weightedCountOf = (await asyncMap(goodCountOf, async ([repo, count]) => [repo, count > 3 ? count / (await localforage.getItem(repo) as Entry).stargazerCount! : -1]))
-        .sort(([k1, v1], [k2, v2]) => (v2 as number) - (v1 as number))
+        .sort(([, v1], [, v2]) => (v2 as number) - (v1 as number))
     console.log("goodCountOf:", goodCountOf)
     console.log("weightedCountOf:", weightedCountOf)
-    return JSON.stringify(weightedCountOf.slice(0, 100).map(([repo, score]) => repo))
+    return JSON.stringify(weightedCountOf.slice(0, 100).map(([repo,]) => repo))
 }
