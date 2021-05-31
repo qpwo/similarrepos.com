@@ -7,6 +7,7 @@ import NotFoundPage from '../routes/notfound'
 import Header from './header'
 
 const App: FunctionalComponent = () => {
+    difjnsdf = 44
     return (
         <div id="preact_root">
             <Header />
