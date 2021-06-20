@@ -52,7 +52,7 @@ function stargazerCountQuery(repo, alias = "") {
 
 
 async function runQuery(query) {
-    console.log("Running query:", query)
+    // console.log("Running query:", query)
     try {
         const response = await fetch("https://api.github.com/graphql", {
             method: 'POST',
@@ -91,7 +91,7 @@ function makeItemInfo(name) {
 }
 
 // TODO: mode for getting the stargazer count of many repos
-export async function batchLoop(items, mode, batchSize = 50) {
+export async function batchLoop(items, mode, batchSize, logger) {
     // const item = items[0]
     // TODO: pack variables into objects
     let part1, part2, makeQuery, max
@@ -108,12 +108,12 @@ export async function batchLoop(items, mode, batchSize = 50) {
     } else {
         throw new Error()
     }
-    console.log("unfiltered items:", items)
+    // console.log("unfiltered items:", items)
     items = await asyncFilter(items, async (item) => {
         const lfi = await localforage.getItem(item)
         return lfi == null || lfi.done != true
     })
-    console.log("filtered items:", items)
+    // console.log("filtered items:", items)
     const uidOf = makeDefaultDict(makeUid)
     let cursors = {}
     let currentItems = items.slice(items.length - batchSize)
@@ -143,8 +143,7 @@ export async function batchLoop(items, mode, batchSize = 50) {
             const uid = uidOf[item]
             if (!result?.data?.[uid]) {
                 // if (!has(result["data"], uid)) {
-                console.log(`Dropping item ${item} because it caused errors`)
-                debugger
+                logger(`Dropping item ${item} because it caused errors`)
                 remove(currentItems, item)
                 coll_i.done = true
                 coll_i.failed = true
@@ -152,14 +151,11 @@ export async function batchLoop(items, mode, batchSize = 50) {
                 continue
             }
             const edges = result["data"][uid][part1]["edges"]
-            console.log("result", result)
-            console.log("edges", edges)
-            console.log("coll_i", coll_i)
             edges.forEach(e => coll_i.items.push(e['node'][part2]))
             if (edges.length < 100 || coll_i.items.length >= max) {
                 remove(currentItems, item)
                 coll_i.done = true
-                console.log(`Finished item "${item}". There are ${currentItems.length} currentItems and ${items.length - pointer} left after that.`)
+                // console.log(`Finished item "${item}". There are ${currentItems.length} currentItems and ${items.length - pointer} left after that.`)
                 // NOTE: if this was async generator then we could yield item here.
             } else {
                 const cursor = edges[edges.length - 1]["cursor"]
@@ -177,14 +173,14 @@ export async function batchLoop(items, mode, batchSize = 50) {
     return
 }
 
-export async function getStarCounts(items, batchSize = 200) {
+export async function getStarCounts(items, batchSize, logger) {
     items = await asyncFilter(items, async (item) => {
         const lfi = await localforage.getItem(item)
         return lfi == null || lfi.stargazerCount == null
     })
     const uidOf = makeDefaultDict(makeUid)
     for (let pointer = 0; pointer < items.length; pointer += batchSize) {
-        console.log(`Getting stargazer counts ${pointer}:${pointer + batchSize} out of ${items.length}`)
+        logger(`Getting stargazer counts ${pointer}:${pointer + batchSize} out of ${items.length}`)
         let currentItems = items.slice(pointer, pointer + batchSize)
         const queryParts = currentItems.map(item => stargazerCountQuery(item, uidOf[item]))
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
@@ -201,7 +197,7 @@ export async function getStarCounts(items, batchSize = 200) {
             }
             const uid = uidOf[item]
             if (!has(result["data"], uid)) {
-                console.log(`Item ${item} caused errors`)
+                logger(`Item ${item} caused errors`)
                 continue
             }
             coll_i.stargazerCount = result["data"][uid]["stargazerCount"]

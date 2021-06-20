@@ -34,9 +34,9 @@ function getCountOf(array) {
     return Object.entries(unsorted).sort(([, v1], [, v2]) => v2 - v1)
 }
 
-function log(message) {
+function logger() {
     const div = document.createElement("div")
-    div.innerText = message
+    div.innerText = JSON.stringify(Object.values(arguments))
     status.appendChild(div)
 }
 
@@ -46,23 +46,32 @@ async function asyncMap(arr, f) {
 
 async function doRepo() {
     const repo = repoInput.value
-    log("Getting stargazers of repo")
-    await batchLoop([repo], 'stargazers')
-    log("Got stargazers of repo")
+    logger("Getting stargazers of repo")
+    await batchLoop([repo], 'stargazers', 50, logger)
+    logger("Got stargazers of repo")
     // if (!collector[repo].failed) {
     const repo_items = (await localforage.getItem(repo)).items
-    log(`Getting stars of ${repo_items.length} stargazers`)
-    await batchLoop(repo_items, 'stars')
-    log("Got stars of stargazers")
+    logger(`Getting stars of ${repo_items.length} stargazers`)
+    await batchLoop(repo_items, 'stars', 50, logger)
+    logger("Got stars of stargazers")
     // }
-    log("Getting stargazer counts of costarred repos.")
+    const itemsOf = async (user) => {
+        const lfUser = await localforage.getItem(user)
+        if (!lfUser) {
+            // logger(`user ${user} is missing`)
+            return []
+        }
+        return lfUser.items
+    }
     const countOf = getCountOf((await asyncMap(repo_items, itemsOf)).flat())
     const goodCountOf = countOf.filter(([, val]) => val > 3)
-    await getStarCounts(goodCountOf.map(([key,]) => key))
+    const costarredRepos = goodCountOf.map(([key,]) => key)
+    logger(`Getting stargazer counts of ${costarredRepos.length} costarred repos.`)
+    await getStarCounts(costarredRepos, 50, logger)
     const weightedCountOf = (await asyncMap(goodCountOf, async ([repo, count]) => [repo, count > 3 ? count / (await localforage.getItem(repo)).stargazerCount : -1]))
-        .sort(([k1, v1], [k2, v2]) => v2 - v1)
-    log("goodCountOf:", goodCountOf)
-    log("weightedCountOf:", weightedCountOf)
+        .sort(([, v1], [, v2]) => v2 - v1)
+    // logger("goodCountOf:", goodCountOf)
+    // logger("weightedCountOf:", weightedCountOf)
     similarDiv.innerText = JSON.stringify(weightedCountOf.slice(0, 100).map(([repo,]) => repo))
 }
 byId("doRepo").onclick = doRepo
