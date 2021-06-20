@@ -24,16 +24,25 @@
       </i>
     </p>
 
-    <div id="loginHolder"></div>
+    <div id="loginHolder">
+      <button
+        onclick="location.href='/api/login'"
+        type="button"
+        id="loginButton"
+        style="background-color: greenyellow"
+      >
+        Get API token from GitHub
+      </button>
+
+      <button type="button" id="logoutButton">Log out</button>
+    </div>
     <div>
       <input type="text" id="repo" placeholder="someuser/theirrepo" />
-      <button type="button" onclick="doRepo()">
-        Find similar repositories
-      </button>
-      (check js console logs for progress) (and click it again if you get an
-      error as it goes)
+      <button type="button" id="doRepo">Find similar repositories</button>
+      (click it again if you get an error as it goes)
+      <p id="status">Status:</p>
 
-      <div id="allStars"></div>
+      <!-- <div id="allStars"></div> -->
 
       <div>
         Similar Repos:
@@ -45,22 +54,6 @@
       <div id="remainingQueries"></div>
     </div>
 
-    <div style="visibility: hidden">
-      <button
-        onclick="location.href='/api/login'"
-        type="button"
-        id="loginButton"
-        style="background-color: greenyellow"
-      >
-        Get API token from GitHub
-      </button>
-
-      <button type="button" onclick="logout()" id="logoutButton">
-        Log out
-      </button>
-    </div>
-    <script src="localforage.js"></script>
-    <script src="starpuller.js"></script>
-    <script src="script.js"></script>
+    <script src="script.mjs" type="module"></script>
   </body>
 </html>

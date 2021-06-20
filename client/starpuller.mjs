@@ -1,4 +1,7 @@
 "use strict"
+
+import localforage from "./localforage.js"
+
 const token = localStorage.getItem("token")
 const rateLimitQuery = "rateLimit { cost remaining resetAt }"
 const failure = Symbol("failure")
@@ -74,21 +77,21 @@ function remove(array, item) {
     array.splice(i, 1)
 }
 
-const maxStars = 50
-const maxStargazers = 100
-
 const asyncFilter = async (arr, predicate) => {
     const results = await Promise.all(arr.map(predicate))
 
     return arr.filter((_v, index) => results[index])
 }
 
+const maxStars = 50
+const maxStargazers = 100
+
 function makeItemInfo(name) {
     return { failed: false, done: false, items: [], name: name, stargazerCount: null }
 }
 
 // TODO: mode for getting the stargazer count of many repos
-async function batchLoop(items, mode, batchSize = 50) {
+export async function batchLoop(items, mode, batchSize = 50) {
     // const item = items[0]
     // TODO: pack variables into objects
     let part1, part2, makeQuery, max
@@ -138,8 +141,10 @@ async function batchLoop(items, mode, batchSize = 50) {
             }
 
             const uid = uidOf[item]
-            if (!has(result["data"], uid)) {
+            if (!result?.data?.[uid]) {
+                // if (!has(result["data"], uid)) {
                 console.log(`Dropping item ${item} because it caused errors`)
+                debugger
                 remove(currentItems, item)
                 coll_i.done = true
                 coll_i.failed = true
@@ -147,6 +152,9 @@ async function batchLoop(items, mode, batchSize = 50) {
                 continue
             }
             const edges = result["data"][uid][part1]["edges"]
+            console.log("result", result)
+            console.log("edges", edges)
+            console.log("coll_i", coll_i)
             edges.forEach(e => coll_i.items.push(e['node'][part2]))
             if (edges.length < 100 || coll_i.items.length >= max) {
                 remove(currentItems, item)
@@ -169,7 +177,7 @@ async function batchLoop(items, mode, batchSize = 50) {
     return
 }
 
-async function getStarCounts(items, batchSize = 200) {
+export async function getStarCounts(items, batchSize = 200) {
     items = await asyncFilter(items, async (item) => {
         const lfi = await localforage.getItem(item)
         return lfi == null || lfi.stargazerCount == null
