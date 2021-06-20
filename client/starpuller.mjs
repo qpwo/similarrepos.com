@@ -83,8 +83,8 @@ const asyncFilter = async (arr, predicate) => {
     return arr.filter((_v, index) => results[index])
 }
 
-const maxStars = 50
-const maxStargazers = 100
+const maxStars = 100
+const maxStargazers = 500
 
 function makeItemInfo(name) {
     return { failed: false, done: false, items: [], name: name, stargazerCount: null }
@@ -126,6 +126,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
         // TODO: save last cursor as you go, and restart from last cursor if possible
         // TODO maybe: use sets so you never get duplicate entries in star list.
         // TODO: use promises or async or whatever
+        logger(`Completed ${pointer - currentItems.length} out of ${items.length}`)
         const queryParts = currentItems.map(item => makeQuery(item, uidOf[item], cursors[item]))
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query)
