@@ -1,6 +1,6 @@
 "use strict"
 
-import localforage from "./localforage.js"
+import localForage from "localforage"
 
 const token = localStorage.getItem("token")
 const rateLimitQuery = "rateLimit { cost remaining resetAt }"
@@ -110,7 +110,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
     }
     // console.log("unfiltered items:", items)
     items = await asyncFilter(items, async (item) => {
-        const lfi = await localforage.getItem(item)
+        const lfi = await localForage.getItem(item)
         return lfi == null || lfi.done != true
     })
     // console.log("filtered items:", items)
@@ -119,7 +119,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
     let currentItems = items.slice(items.length - batchSize)
     let pointer = currentItems.length
     for (const item of items) {
-        const x = await localforage.getItem(item)
+        const x = await localForage.getItem(item)
         cursors[item] = x ? x.lastCursor : undefined
     }
     while (currentItems.length > 0) {
@@ -136,7 +136,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
             break
         }
         for (const item of [...currentItems]) {
-            let coll_i = await localforage.getItem(item)
+            let coll_i = await localForage.getItem(item)
             if (coll_i == null) {
                 coll_i = makeItemInfo(item)
             }
@@ -148,7 +148,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
                 remove(currentItems, item)
                 coll_i.done = true
                 coll_i.failed = true
-                await localforage.setItem(item, coll_i)
+                await localForage.setItem(item, coll_i)
                 continue
             }
             const edges = result["data"][uid][part1]["edges"]
@@ -163,7 +163,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
                 cursors[item] = cursor
                 coll_i.lastCursor = cursor
             }
-            await localforage.setItem(item, coll_i)
+            await localForage.setItem(item, coll_i)
         }
         if (currentItems.length < batchSize && pointer < items.length) {
             const addCount = Math.min(batchSize - currentItems.length, items.length - pointer)
@@ -176,7 +176,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
 
 export async function getStarCounts(items, batchSize, logger) {
     items = await asyncFilter(items, async (item) => {
-        const lfi = await localforage.getItem(item)
+        const lfi = await localForage.getItem(item)
         return lfi == null || lfi.stargazerCount == null
     })
     const uidOf = makeDefaultDict(makeUid)
@@ -192,7 +192,7 @@ export async function getStarCounts(items, batchSize, logger) {
         }
         for (const item of [...currentItems]) {
             // TODO: Could be in a separate table for faster read/write
-            let coll_i = await localforage.getItem(item)
+            let coll_i = await localForage.getItem(item)
             if (coll_i == null) {
                 coll_i = makeItemInfo(item)
             }
@@ -202,7 +202,7 @@ export async function getStarCounts(items, batchSize, logger) {
                 continue
             }
             coll_i.stargazerCount = result["data"][uid]["stargazerCount"]
-            await localforage.setItem(item, coll_i)
+            await localForage.setItem(item, coll_i)
         }
     }
     return

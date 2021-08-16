@@ -1,15 +1,7 @@
 "use strict"
 
-import localforage from "./localforage.js"
-import { getStarCounts, batchLoop } from "./starpuller.mjs"
-
-function byId(string) { return document.getElementById(string) }
-const logoutButton = byId("logoutButton")
-const loginButton = byId("loginButton")
-// const allStarsDiv = byId("allStars")
-const status = byId("status")
-const repoInput = byId("repo")
-const similarDiv = byId("similar")
+import localForage from "localforage"
+import { getStarCounts, batchLoop } from "./starpuller.js"
 
 function updateLoginButton() {
     if (window.localStorage.getItem("token")) {
@@ -44,19 +36,19 @@ async function asyncMap(arr, f) {
     return await Promise.all(arr.map(f))
 }
 
-async function doRepo() {
+export async function doRepo() {
     const repo = repoInput.value
     logger("Getting stargazers of repo")
     await batchLoop([repo], 'stargazers', 50, logger)
     logger("Got stargazers of repo")
     // if (!collector[repo].failed) {
-    const repo_items = (await localforage.getItem(repo)).items
+    const repo_items = (await localForage.getItem(repo)).items
     logger(`Getting stars of ${repo_items.length} stargazers`)
     await batchLoop(repo_items, 'stars', 50, logger)
     logger("Got stars of stargazers")
     // }
     const itemsOf = async (user) => {
-        const lfUser = await localforage.getItem(user)
+        const lfUser = await localForage.getItem(user)
         if (!lfUser) {
             console.log(`user ${user} is missing`) // TODO: should never happen?
             return []
@@ -70,7 +62,7 @@ async function doRepo() {
     await getStarCounts(costarredRepos, 50, logger)
     const weightedCountOf =
         (await asyncMap(goodCountOf, async ([repo, count]) => {
-            const stargazerCount = (await localforage.getItem(repo)).stargazerCount
+            const stargazerCount = (await localForage.getItem(repo)).stargazerCount
             return {
                 repo,
                 costars: count,
