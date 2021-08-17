@@ -6,13 +6,13 @@ const token = localStorage.getItem("token")
 const rateLimitQuery = "rateLimit { cost remaining resetAt }"
 const failure = Symbol("failure")
 
-function has(object, property) {
+function has(object: {}, property: string) {
     return Object.prototype.hasOwnProperty.call(object, property)
 }
 
-function makeDefaultDict(factory) {
+function makeDefaultDict<T>(factory: (s: string) => T) {
     return new Proxy({}, {
-        get(target, name) {
+        get(target: Record<string, T>, name: string) {
             if (!(has(target, name))) {
                 target[name] = factory(name)
             }
@@ -31,27 +31,27 @@ function makeUid() {
     return result
 }
 
-function repoQuery(repo, alias = "", cursor = "") {
+function repoQuery(repo: string, alias = "", cursor = "") {
     const [owner, name] = repo.split("/")
     if (cursor) { cursor = `, after: "${cursor}"` }
     if (alias) { alias = `${alias}: ` }
     return `${alias}repository(owner: "${owner}", name: "${name}") { stargazers(first: 100${cursor}) { edges { cursor node { login } } } }`
 }
 
-function userQuery(user, alias = "", cursor = "") {
+function userQuery(user: string, alias = "", cursor = "") {
     if (cursor) { cursor = `, after: "${cursor}"` }
     if (alias) { alias = `${alias}: ` }
     return `${alias}user(login: "${user}") { starredRepositories(first: 100${cursor}) { edges { cursor node { nameWithOwner } } } }`
 }
 
-function stargazerCountQuery(repo, alias = "") {
+function stargazerCountQuery(repo: string, alias = "") {
     const [owner, name] = repo.split("/")
     if (alias) { alias = `${alias}: ` }
     return `${alias}repository(owner: "${owner}", name: "${name}") { stargazerCount }`
 }
 
 
-async function runQuery(query) {
+async function runQuery(query: string) {
     // console.log("Running query:", query)
     try {
         const response = await fetch("https://api.github.com/graphql", {
@@ -69,7 +69,7 @@ async function runQuery(query) {
     }
 }
 
-function remove(array, item) {
+function remove<T>(array: T[], item: T) {
     const i = array.indexOf(item)
     if (i == -1) {
         throw new Error(`remove: ${item} not in ${array}`)
@@ -77,7 +77,7 @@ function remove(array, item) {
     array.splice(i, 1)
 }
 
-const asyncFilter = async (arr, predicate) => {
+async function asyncFilter<T>(arr: T[], predicate: (t: T) => Promise<boolean>) {
     const results = await Promise.all(arr.map(predicate))
 
     return arr.filter((_v, index) => results[index])
@@ -86,40 +86,31 @@ const asyncFilter = async (arr, predicate) => {
 const maxStars = 100
 const maxStargazers = 500
 
-function makeItemInfo(name) {
-    return { failed: false, done: false, items: [], name: name, stargazerCount: null }
+export type ItemInfo = { failed: boolean, done: boolean, items: string[], name: string, stargazerCount: null | number, lastCursor?: string }
+function makeItemInfo(name: string): ItemInfo {
+    return { failed: false, done: false, items: [], name, stargazerCount: null }
 }
 
 // TODO: mode for getting the stargazer count of many repos
-export async function batchLoop(items, mode, batchSize, logger) {
+export async function batchLoop(items: string[], mode: "stars" | "stargazers", batchSize: number, logger: (s: string) => void) {
     // const item = items[0]
-    // TODO: pack variables into objects
-    let part1, part2, makeQuery, max
-    if (mode == "stars") {
-        part1 = "starredRepositories"
-        part2 = "nameWithOwner"
-        makeQuery = userQuery
-        max = maxStars
-    } else if (mode == "stargazers") {
-        part1 = "stargazers"
-        part2 = "login"
-        makeQuery = repoQuery
-        max = maxStargazers
-    } else {
-        throw new Error()
-    }
+    // TODO: pack variables into objects 
+    let [part1, part2, makeQuery, max] =
+        (mode == "stars") ?
+            ["starredRepositories", "nameWithOwner", userQuery, maxStars] :
+            ["stargazers", "login", repoQuery, maxStargazers]
     // console.log("unfiltered items:", items)
     items = await asyncFilter(items, async (item) => {
-        const lfi = await localForage.getItem(item)
+        const lfi = await localForage.getItem(item) as ItemInfo
         return lfi == null || lfi.done != true
     })
     // console.log("filtered items:", items)
     const uidOf = makeDefaultDict(makeUid)
-    let cursors = {}
+    let cursors: Record<string, string | undefined> = {}
     let currentItems = items.slice(items.length - batchSize)
     let pointer = currentItems.length
     for (const item of items) {
-        const x = await localForage.getItem(item)
+        const x = await localForage.getItem(item) as ItemInfo
         cursors[item] = x ? x.lastCursor : undefined
     }
     while (currentItems.length > 0) {
@@ -136,7 +127,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
             break
         }
         for (const item of [...currentItems]) {
-            let coll_i = await localForage.getItem(item)
+            let coll_i = await localForage.getItem(item) as ItemInfo
             if (coll_i == null) {
                 coll_i = makeItemInfo(item)
             }
@@ -152,7 +143,7 @@ export async function batchLoop(items, mode, batchSize, logger) {
                 continue
             }
             const edges = result["data"][uid][part1]["edges"]
-            edges.forEach(e => coll_i.items.push(e['node'][part2]))
+            edges.forEach((e: any) => coll_i.items.push(e['node'][part2]))
             if (edges.length < 100 || coll_i.items.length >= max) {
                 remove(currentItems, item)
                 coll_i.done = true
@@ -174,9 +165,9 @@ export async function batchLoop(items, mode, batchSize, logger) {
     return
 }
 
-export async function getStarCounts(items, batchSize, logger) {
+export async function getStarCounts(items: string[], batchSize: number, logger: (s: string) => void) {
     items = await asyncFilter(items, async (item) => {
-        const lfi = await localForage.getItem(item)
+        const lfi = await localForage.getItem(item) as ItemInfo
         return lfi == null || lfi.stargazerCount == null
     })
     const uidOf = makeDefaultDict(makeUid)
@@ -192,10 +183,7 @@ export async function getStarCounts(items, batchSize, logger) {
         }
         for (const item of [...currentItems]) {
             // TODO: Could be in a separate table for faster read/write
-            let coll_i = await localForage.getItem(item)
-            if (coll_i == null) {
-                coll_i = makeItemInfo(item)
-            }
+            let coll_i: ItemInfo = (await localForage.getItem(item)) ?? makeItemInfo(item)
             const uid = uidOf[item]
             if (!has(result["data"], uid)) {
                 logger(`Item ${item} caused errors`)

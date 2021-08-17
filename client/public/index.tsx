@@ -40,9 +40,10 @@ function LoginArea() {
 
 
 function Similar() {
+	const [s, setS] = useState("")
 	return <div>
-		<input type="text" id="repo" placeholder="someuser/theirrepo" />
-		<button id="doRepo" onClick={doRepo}>Find similar repositories</button>
+		<input type="text" id="repo" onChange={e => setS(e?.target?.value)} value={s} placeholder="someuser/theirrepo" />
+		<button id="doRepo" onClick={() => doRepo(s)}>Find similar repositories</button>
 		(click it again if you get an error as it goes)
 		<p id="status">Status:</p>
 
