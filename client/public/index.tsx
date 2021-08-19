@@ -25,14 +25,12 @@ function Header() {
 
 
 function LoginArea() {
-	return <div id="loginHolder">
+	return <div >
 		<button
 			onClick={() => { location.href = '/api/login' }}
-			style="background-color: greenyellow"
-		>
+			style="background-color: greenyellow" >
 			Get API token from GitHub
 		</button>
-
 		<button>Log out</button>
 	</div>
 
@@ -42,14 +40,14 @@ function LoginArea() {
 function Similar() {
 	const [s, setS] = useState("")
 	return <div>
-		<input type="text" id="repo" onChange={e => setS(e?.target?.value)} value={s} placeholder="someuser/theirrepo" />
-		<button id="doRepo" onClick={() => doRepo(s)}>Find similar repositories</button>
+		<input type="text" onChange={e => setS(e?.target?.value)} value={s} placeholder="someuser/theirrepo" />
+		<button onClick={() => doRepo(s)}>Find similar repositories</button>
 		(click it again if you get an error as it goes)
-		<p id="status">Status:</p>
+		<p >Status:</p>
 
 		<div>
 			Similar Repos:
-			<div id="similar"></div>
+			<div ></div>
 		</div>
 	</div>
 }
@@ -58,7 +56,7 @@ function Similar() {
 function Remaining() {
 	return <div>
 		Remaining queries:
-		<div id="remainingQueries"></div>
+		<div ></div>
 	</div>
 }
 
