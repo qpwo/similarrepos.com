@@ -1,0 +1,5 @@
+{
+    "scripts": {
+        "fmt": "prettier-no-jsx-parens -w -l ."
+    }
+}
