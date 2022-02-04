@@ -1,0 +1,13 @@
+// Server
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "noEmit": true,
+        "strict": true,
+        "target": "es2017",
+        "noImplicitAny": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true
+    },
+    "compileOnSave": true
+}

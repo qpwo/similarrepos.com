@@ -1,5 +1,6 @@
-import styles from './style.module.css'
 import { useState } from 'preact/hooks'
+
+import styles from './style.module.css'
 
 export default function Home() {
     const [count, setCount] = useState(0)

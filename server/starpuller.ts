@@ -121,7 +121,7 @@ export async function batchLoop(
 ) {
     // const item = items[0]
     // TODO: pack variables into objects
-    let [part1, part2, makeQuery, max] =
+    const [part1, part2, makeQuery, max] =
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, maxStars]
             : ['stargazers', 'login', repoQuery, maxStargazers]
@@ -132,8 +132,8 @@ export async function batchLoop(
     })
     // console.log("filtered items:", items)
     const uidOf = makeDefaultDict(makeUid)
-    let cursors: Record<string, string | undefined> = {}
-    let currentItems = items.slice(items.length - batchSize)
+    const cursors: Record<string, string | undefined> = {}
+    const currentItems = items.slice(items.length - batchSize)
     let pointer = currentItems.length
     for (const item of items) {
         const x = (await localForage.getItem(item)) as ItemInfo
@@ -195,7 +195,7 @@ export async function batchLoop(
             pointer += addCount
         }
     }
-    return
+    
 }
 
 export async function getStarCounts(
@@ -214,7 +214,7 @@ export async function getStarCounts(
                 pointer + batchSize
             } out of ${items.length}`
         )
-        let currentItems = items.slice(pointer, pointer + batchSize)
+        const currentItems = items.slice(pointer, pointer + batchSize)
         const queryParts = currentItems.map(item =>
             stargazerCountQuery(item, uidOf[item])
         )
@@ -226,7 +226,7 @@ export async function getStarCounts(
         }
         for (const item of [...currentItems]) {
             // TODO: Could be in a separate table for faster read/write
-            let coll_i: ItemInfo =
+            const coll_i: ItemInfo =
                 (await localForage.getItem(item)) ?? makeItemInfo(item)
             const uid = uidOf[item]
             if (!has(result['data'], uid)) {
@@ -237,5 +237,5 @@ export async function getStarCounts(
             await localForage.setItem(item, coll_i)
         }
     }
-    return
+    
 }

@@ -5,8 +5,10 @@
         "build": "wmr build --prerender",
         "serve": "wmr serve"
     },
-    "eslintConfig": {
-        "extends": "preact"
+    "commented-out": {
+        "eslintConfig": {
+            "extends": "preact"
+        }
     },
     "dependencies": {
         "preact": "^10.6.5",

@@ -1,15 +1,16 @@
 import {
-    LocationProvider,
-    Router,
-    Route,
-    lazy,
     ErrorBoundary,
     hydrate,
+    lazy,
+    LocationProvider,
     prerender as ssr,
+    Route,
+    Router,
 } from 'preact-iso'
-import Home from './pages/home/index.js'
-import NotFound from './pages/_404.js'
+
 import Header from './header.js'
+import NotFound from './pages/_404.js'
+import Home from './pages/home/index.js'
 
 const About = lazy(() => import('./pages/about/index.js'))
 

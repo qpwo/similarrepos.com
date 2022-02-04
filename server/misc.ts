@@ -1,7 +1,9 @@
 'use strict'
 
 import localForage from 'localforage'
-import { getStarCounts, batchLoop, ItemInfo } from './starpuller.js'
+
+import type { ItemInfo } from './starpuller.js';
+import { batchLoop, getStarCounts } from './starpuller.js'
 
 function updateLoginButton() {
     if (window.localStorage.getItem('token')) {
@@ -16,7 +18,7 @@ function logout() {
 }
 
 function getCountOf(array: string[]): [string, number][] {
-    var unsorted: Record<string, number> = {}
+    const unsorted: Record<string, number> = {}
     array.forEach(val => (unsorted[val] = (unsorted[val] || 0) + 1))
     return Object.entries(unsorted).sort(([, v1], [, v2]) => v2 - v1)
 }
