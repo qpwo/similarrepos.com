@@ -1,7 +1,11 @@
+//rm -f fill-db.js sqlite.db && tsc fill-db.ts --esModuleInterop && echo 'starting' && node fill-db.js
+
 import { AceBase } from 'acebase'
 import { createReadStream, appendFileSync } from 'fs'
 import { createInterface } from 'readline'
 // const db = new AceBase('mydb', { logLevel: 'error' }) // Creates or opens a database with name "mydb"
+import sqlite from 'better-sqlite3'
+const db = sqlite('sqlite.db')
 
 const n = 500_000
 
@@ -20,24 +24,63 @@ function log(...args: unknown[]): void {
 }
 
 void main()
-async function main() {
-    if (!process.argv[2]) throw Error('must say what kind')
+function main() {
+    db.prepare(
+        `CREATE TABLE stars (
+            user VARCHAR(50),
+            repo VARCHAR(50)
+      )`
+    ).run()
+    /*     db.prepare(
+        `INSERT INTO stars (user, repo)
+        VALUES
+        (1, 10),
+        (1, 30),
+        (2, 20),
+        (2, 10),
+        (3, 30)`
+    ).run()
+ */ const insert = db.prepare(
+        'INSERT INTO stars (user, repo) VALUES (@user, @repo)'
+    )
 
-    log('APPROACH:', process.argv[2])
-    const start = Date.now()
-    // await db.ready()
-    // log('db is ready')
-    // log('loading stars:')
-    // await loadStars()
-    // log('done loading stars\n\n\n\n\n')
-    log('loading gazers:')
-    await loadGazers(n)
-    log('done loading gazers\n\n\n\n\n')
-    const end = Date.now()
-    log('duration:', end - start)
-    log('n was', n)
-    const used = process.memoryUsage().heapUsed / 1024 / 1024
-    log(`The script uses approximately ${Math.round(used * 100) / 100} MB`)
+    const insertMany = db.transaction(pairs => {
+        for (const pair of pairs) insert.run(pair)
+    })
+
+    insertMany([
+        { user: 'x', repo: '1/1' },
+        { user: 'y', repo: '1/1' },
+        { user: 'x', repo: '1/2' },
+        { user: 'y', repo: '1/2' },
+        { user: 'z', repo: '1/2' },
+        { user: 'z', repo: '1/3' },
+    ])
+    const result = db.prepare('SELECT repo FROM stars WHERE user = ?').all('x')
+    console.log(result)
+    console.log(db.prepare('SELECT user FROM stars WHERE repo = ?').all('1/2'))
+    // NEXT STEPS:
+    // .aggregate might make the many-self queries run a lot faster
+    // can cache the number of costars for each repo
+    // in fact oh shit i should just do that and throw sqlite out the door?
+    // well damn I just got it working.
+    // all i need is number of costars rip.
+    // if (!process.argv[2]) throw Error('must say what kind')
+    // log('APPROACH:', process.argv[2])
+    // const start = Date.now()
+    // // await db.ready()
+    // // log('db is ready')
+    // // log('loading stars:')
+    // // await loadStars()
+    // // log('done loading stars\n\n\n\n\n')
+    // log('loading gazers:')
+    // await loadGazers(n)
+    // log('done loading gazers\n\n\n\n\n')
+    // const end = Date.now()
+    // log('duration:', end - start)
+    // log('n was', n)
+    // const used = process.memoryUsage().heapUsed / 1024 / 1024
+    // log(`The script uses approximately ${Math.round(used * 100) / 100} MB`)
 }
 
 type MaybeAsync<T> = T extends (...args: infer In) => infer Out
