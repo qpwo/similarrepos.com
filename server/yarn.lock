@@ -658,6 +658,11 @@ path-to-regexp@^6.1.0:
   resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-6.2.0.tgz#f7b3803336104c346889adece614669230645f38"
   integrity sha512-f66KywYG6+43afgE/8j/GoiNyygk/bnoCbps++3ErRKsIYkGGupyv07R2Ok5m9i67Iqc+T2g1eAUGUPzWhYTyg==
 
+pg-query-emscripten@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/pg-query-emscripten/-/pg-query-emscripten-0.1.0.tgz#a4c6c7c6b3645ab0a4436bf650f3bcdf5b530c23"
+  integrity sha512-Awwf0s6gyVZEmZeMLXnXZOIQveqVEBFhxMkR0UcMmijwX/y9FW1od71X1hNRtGFWrU/ML5sxerZyH20pvpLGuA==
+
 prebuild-install@^7.0.0:
   version "7.0.1"
   resolved "https://registry.yarnpkg.com/prebuild-install/-/prebuild-install-7.0.1.tgz#c10075727c318efe72412f333e0ef625beaf3870"
@@ -874,6 +879,19 @@ type-is@^1.6.16:
   dependencies:
     media-typer "0.3.0"
     mime-types "~2.1.24"
+
+typescript-sql-tagged-template-plugin@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/typescript-sql-tagged-template-plugin/-/typescript-sql-tagged-template-plugin-0.2.0.tgz#9f1a48db6e57e4bb19e57c2703e91934120050bb"
+  integrity sha512-ZxvsGIKyGcyGVxQrneFoM2oC5/7jqxjnbXCCV9afDfFPSsAM15K7MDs0v/4h7unxeOEHjBG14Lha9etqOkgc/g==
+  dependencies:
+    pg-query-emscripten "^0.1.0"
+    typescript-template-language-service-decorator "^2.2.0"
+
+typescript-template-language-service-decorator@^2.2.0:
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/typescript-template-language-service-decorator/-/typescript-template-language-service-decorator-2.2.0.tgz#4ee6d580f307fb9239978e69626f2775b8a59b2a"
+  integrity sha512-xiolqt1i7e22rpqMaprPgSFVgU64u3b9n6EJlAaUYE61jumipKAdI1+O5khPlWslpTUj80YzjUKjJ2jxT0D74w==
 
 util-deprecate@^1.0.1, util-deprecate@~1.0.1:
   version "1.0.2"

@@ -4,6 +4,9 @@
 import sqlite from 'better-sqlite3'
 import { appendFileSync, createReadStream } from 'fs'
 import { createInterface } from 'readline'
+
+import { sql } from './util'
+
 const db = sqlite('sqlite.db')
 
 const idMap: Map<string, number> = new Map()
@@ -13,35 +16,62 @@ const numStargazerRows = 3_139_019
 const numStarsRows = 3_032_978
 const path = '/Users/l/Downloads/github-data'
 
-const n = numStargazerRows
+const n = 100_000
 
 function log(...args: unknown[]): void {
     console.log(new Date().toLocaleString(), ...args)
     appendFileSync(
         'log.txt',
-        JSON.stringify([new Date().toLocaleString(), ...args])
+        JSON.stringify([new Date().toLocaleString(), ...args]) + '\n'
     )
 }
 
 void main()
 async function main() {
-    log('APPROACH:', process.argv[2])
+    log('\n\n\nAPPROACH:', process.argv[2])
     const start = Date.now()
     db.prepare(
-        `CREATE TABLE stars (
+        sql`CREATE TABLE stars (
             user INT,
             repo INT
       )`
     ).run()
+    db.prepare(
+        sql`CREATE TABLE nameOf (
+            id INT,
+            string VARCHAR(50)
+      )`
+    ).run()
+
     const insert = db.prepare(
-        'INSERT INTO stars (user, repo) VALUES (@user, @repo)'
+        sql`INSERT INTO stars (user, repo) VALUES (@user, @repo)`
     )
 
     const insertMany = db.transaction(pairs => {
         for (const pair of pairs) insert.run(pair)
     })
 
+    log('loading all gazers')
     await loadGazers(insertMany, n)
+
+    const insertName = db.prepare(
+        sql`INSERT INTO nameOf (id, string) VALUES (@id, @string)`
+    )
+    const insertNames = db.transaction(pairs => {
+        for (const p of pairs) insertName.run(p)
+    })
+    // log('inserting names in batches')
+    const pairs: { id: number; string: string }[] = []
+    idMap.forEach((val, key) => {
+        // if (pairs.length >= databaseBatchSize) {
+        //     insertNames(pairs)
+        // }
+        pairs.push({ id: val, string: key })
+    })
+    // log('done inserting names')
+
+    log('inserting names')
+    insertNames(pairs)
     const end = Date.now()
     log('duration:', end - start)
     log('n was', n)
@@ -50,8 +80,8 @@ async function main() {
 }
 
 type Pair = { user: number; repo: number }
-const progressUpdateSize = 10000
-const databaseBatchSize = 10000
+const progressUpdateSize = 10_000
+const databaseBatchSize = 30_000
 async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
     let pairs: Pair[] = []
     await processLines(
@@ -78,6 +108,8 @@ async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
         },
         n
     )
+    log(`inserting last ${pairs.length} pairs`)
+    insertMany(pairs)
 }
 
 let id = 0

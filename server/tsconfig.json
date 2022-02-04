@@ -7,7 +7,12 @@
         "target": "es2017",
         "noImplicitAny": true,
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "plugins": [
+            {
+                "name": "typescript-sql-tagged-template-plugin"
+            }
+        ]
     },
     "compileOnSave": true
 }

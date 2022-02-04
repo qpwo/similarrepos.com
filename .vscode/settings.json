@@ -1,5 +1,12 @@
 {
     "files.exclude": {
         "**/*.acebase/": true
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true
+    },
+    "eslint.format.enable": true,
+    "eslint.options": {
+        "cache": true
     }
 }
