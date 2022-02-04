@@ -1,19 +1,16 @@
-//rm -f fill-db.js sqlite.db && tsc fill-db.ts --esModuleInterop && echo 'starting' && node fill-db.js
+// rm -f fill-db.js sqlite.db && tsc fill-db.ts --esModuleInterop && echo 'starting' && node fill-db.js
 
-import { AceBase } from 'acebase'
-import { createReadStream, appendFileSync } from 'fs'
-import { createInterface } from 'readline'
 // const db = new AceBase('mydb', { logLevel: 'error' }) // Creates or opens a database with name "mydb"
 import sqlite from 'better-sqlite3'
+import { appendFileSync, createReadStream } from 'fs'
+import { createInterface } from 'readline'
 const db = sqlite('sqlite.db')
-
-const n = 500_000
 
 const numStargazerRows = 3_139_019
 const numStarsRows = 3_032_978
 const path = '/Users/l/Downloads/github-data'
-const idMap: Map<string, number> = new Map()
-const nameMap: Map<number, string> = new Map()
+
+const n = numStargazerRows
 
 function log(...args: unknown[]): void {
     console.log(new Date().toLocaleString(), ...args)
@@ -24,23 +21,15 @@ function log(...args: unknown[]): void {
 }
 
 void main()
-function main() {
+async function main() {
+    const start = Date.now()
     db.prepare(
         `CREATE TABLE stars (
             user VARCHAR(50),
             repo VARCHAR(50)
       )`
     ).run()
-    /*     db.prepare(
-        `INSERT INTO stars (user, repo)
-        VALUES
-        (1, 10),
-        (1, 30),
-        (2, 20),
-        (2, 10),
-        (3, 30)`
-    ).run()
- */ const insert = db.prepare(
+    const insert = db.prepare(
         'INSERT INTO stars (user, repo) VALUES (@user, @repo)'
     )
 
@@ -48,109 +37,62 @@ function main() {
         for (const pair of pairs) insert.run(pair)
     })
 
-    insertMany([
-        { user: 'x', repo: '1/1' },
-        { user: 'y', repo: '1/1' },
-        { user: 'x', repo: '1/2' },
-        { user: 'y', repo: '1/2' },
-        { user: 'z', repo: '1/2' },
-        { user: 'z', repo: '1/3' },
-    ])
-    const result = db.prepare('SELECT repo FROM stars WHERE user = ?').all('x')
-    console.log(result)
-    console.log(db.prepare('SELECT user FROM stars WHERE repo = ?').all('1/2'))
-    // NEXT STEPS:
-    // .aggregate might make the many-self queries run a lot faster
-    // can cache the number of costars for each repo
-    // in fact oh shit i should just do that and throw sqlite out the door?
-    // well damn I just got it working.
-    // all i need is number of costars rip.
-    // if (!process.argv[2]) throw Error('must say what kind')
-    // log('APPROACH:', process.argv[2])
-    // const start = Date.now()
-    // // await db.ready()
-    // // log('db is ready')
-    // // log('loading stars:')
-    // // await loadStars()
-    // // log('done loading stars\n\n\n\n\n')
-    // log('loading gazers:')
-    // await loadGazers(n)
-    // log('done loading gazers\n\n\n\n\n')
-    // const end = Date.now()
-    // log('duration:', end - start)
-    // log('n was', n)
-    // const used = process.memoryUsage().heapUsed / 1024 / 1024
-    // log(`The script uses approximately ${Math.round(used * 100) / 100} MB`)
+    await loadGazers(insertMany, n)
+    const end = Date.now()
+    log('duration:', end - start)
+    log('n was', n)
+    const used = process.memoryUsage().heapUsed / 1024 / 1024
+    log(`The script uses approximately ${Math.round(used * 100) / 100} MB`)
 }
 
-type MaybeAsync<T> = T extends (...args: infer In) => infer Out
-    ? T | ((...args: In) => Promise<Out>)
-    : never
-
-async function loadStars() {
-    const giantObj: Record<string, string[]> = {}
-    await processLines(path + '/stars.tsv', (line, num) => {
-        if (num % 10000 === 0) {
-            log('on line', frac(num, numStarsRows))
-        }
-        const cols = line.split('\t')
-        const user = cols[0]
-        const stars = cols.slice(1).map(repo => repo.replace('/', '!!'))
-        giantObj[user] = stars
-        // void db.ref(`stars/${user}`).set(stars)
-    })
-    log('putting in database:')
-    // await db.ref('stars').set(giantObj)
-}
-async function loadGazers(n = -1) {
-    // let giantObj: Map<string, string[]> = new Map()
-    let giantObj: Map<number, number[]> = new Map()
-
-    // const giantObj: Record<string, string[]> = {}
-    // const giantObj: Record<number, number[]> = {}
-
+type Pair = { user: string; repo: string }
+const progressUpdateSize = 10000
+const databaseBatchSize = 10000
+async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
+    let pairs: Pair[] = []
     await processLines(
         path + '/stargazers.tsv',
-        async (line, num) => {
-            if (num % 10_000 === 0) {
+        (line, num) => {
+            if (num % progressUpdateSize === 0) {
                 log('on line', frac(num, numStargazerRows))
-                // log('number of keys:', Object.keys(giantObj).length)
             }
-            if (num % 10_000 === 0) {
-                // log('putting batch in database:')
-                // await db.ref('gazers').update(giantObj)
-                // log('making new obj hopefully')
-                // giantObj = {}
+            if (num % databaseBatchSize === 0) {
+                const before = Date.now()
+                insertMany(pairs)
+                const after = Date.now()
+                const secondsElapsed = (after - before) / 1000
+                log(
+                    `inserting ${pairs.length} pairs took ${secondsElapsed} seconds`
+                )
+                pairs = []
             }
             const cols = line.split('\t')
-            const numCols = cols.map(c => idOf(c))
-            const repo = numCols[0]
-            const gazers = numCols.slice(1)
-            giantObj.set(repo, gazers)
-            // giantObj[repo] = gazers
-            // void db.ref(`gazers/${repo}`).set(gazers)
+            const repo = cols[0]
+            for (let i = 1; i < cols.length; i++) {
+                pairs.push({ repo, user: cols[i] })
+            }
         },
         n
     )
-    // await db.ref('gazers').set(giantObj)
 }
 
-let id = 0
-function idOf(s: string): number {
-    if (idMap.has(s)) {
-        return idMap.get(s)!
-    }
-    // const id = (Math.random() * 1_000_000_000) | 0
-    id += 1
-    idMap.set(s, id)
-    nameMap.set(id, s)
-    return id
-}
+// async function loadStars() {
+//     // TODO
+//     await processLines(path + '/stars.tsv', (line, num) => {
+//         const cols = line.split('\t')
+//         const user = cols[0]
+//         const stars = cols.slice(1)
+//     })
+// }
 
 function frac(num: number, dem: number): string {
     const percent = ((100 * num) / dem).toFixed(2)
     return `${num.toLocaleString()}/${dem.toLocaleString()} (${percent}%)`
 }
+
+type MaybeAsync<T> = T extends (...args: infer In) => infer Out
+    ? T | ((...args: In) => Promise<Out>)
+    : never
 
 async function processLines(
     filename: string,
@@ -176,5 +118,3 @@ async function processLines(
         await handleLine(line, count)
     }
 }
-
-const unused = 33
