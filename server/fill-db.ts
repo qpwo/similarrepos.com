@@ -8,6 +8,8 @@ const n = 500_000
 const numStargazerRows = 3_139_019
 const numStarsRows = 3_032_978
 const path = '/Users/l/Downloads/github-data'
+const idMap: Map<string, number> = new Map()
+const nameMap: Map<number, string> = new Map()
 
 function log(...args: unknown[]): void {
     console.log(new Date().toLocaleString(), ...args)
@@ -21,7 +23,7 @@ void main()
 async function main() {
     if (!process.argv[2]) throw Error('must say what kind')
 
-    console.log('APPROACH:', process.argv[2])
+    log('APPROACH:', process.argv[2])
     const start = Date.now()
     // await db.ready()
     // log('db is ready')
@@ -34,6 +36,8 @@ async function main() {
     const end = Date.now()
     log('duration:', end - start)
     log('n was', n)
+    const used = process.memoryUsage().heapUsed / 1024 / 1024
+    log(`The script uses approximately ${Math.round(used * 100) / 100} MB`)
 }
 
 type MaybeAsync<T> = T extends (...args: infer In) => infer Out
@@ -56,7 +60,11 @@ async function loadStars() {
     // await db.ref('stars').set(giantObj)
 }
 async function loadGazers(n = -1) {
-    let giantObj: Record<string, string[]> = {}
+    // let giantObj: Map<string, string[]> = new Map()
+    let giantObj: Map<number, number[]> = new Map()
+
+    // const giantObj: Record<string, string[]> = {}
+    // const giantObj: Record<number, number[]> = {}
 
     await processLines(
         path + '/stargazers.tsv',
@@ -72,14 +80,28 @@ async function loadGazers(n = -1) {
                 // giantObj = {}
             }
             const cols = line.split('\t')
-            const repo = cols[0].replace('/', '!!')
-            const gazers = cols.slice(1)
-            giantObj[repo] = gazers
+            const numCols = cols.map(c => idOf(c))
+            const repo = numCols[0]
+            const gazers = numCols.slice(1)
+            giantObj.set(repo, gazers)
+            // giantObj[repo] = gazers
             // void db.ref(`gazers/${repo}`).set(gazers)
         },
         n
     )
     // await db.ref('gazers').set(giantObj)
+}
+
+let id = 0
+function idOf(s: string): number {
+    if (idMap.has(s)) {
+        return idMap.get(s)!
+    }
+    // const id = (Math.random() * 1_000_000_000) | 0
+    id += 1
+    idMap.set(s, id)
+    nameMap.set(id, s)
+    return id
 }
 
 function frac(num: number, dem: number): string {
