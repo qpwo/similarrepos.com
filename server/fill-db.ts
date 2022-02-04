@@ -6,6 +6,9 @@ import { appendFileSync, createReadStream } from 'fs'
 import { createInterface } from 'readline'
 const db = sqlite('sqlite.db')
 
+const idMap: Map<string, number> = new Map()
+const nameMap: Map<number, string> = new Map()
+
 const numStargazerRows = 3_139_019
 const numStarsRows = 3_032_978
 const path = '/Users/l/Downloads/github-data'
@@ -22,11 +25,12 @@ function log(...args: unknown[]): void {
 
 void main()
 async function main() {
+    log('APPROACH:', process.argv[2])
     const start = Date.now()
     db.prepare(
         `CREATE TABLE stars (
-            user VARCHAR(50),
-            repo VARCHAR(50)
+            user INT,
+            repo INT
       )`
     ).run()
     const insert = db.prepare(
@@ -45,7 +49,7 @@ async function main() {
     log(`The script uses approximately ${Math.round(used * 100) / 100} MB`)
 }
 
-type Pair = { user: string; repo: string }
+type Pair = { user: number; repo: number }
 const progressUpdateSize = 10000
 const databaseBatchSize = 10000
 async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
@@ -67,13 +71,25 @@ async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
                 pairs = []
             }
             const cols = line.split('\t')
-            const repo = cols[0]
+            const repo = idOf(cols[0])
             for (let i = 1; i < cols.length; i++) {
-                pairs.push({ repo, user: cols[i] })
+                pairs.push({ repo, user: idOf(cols[i]) })
             }
         },
         n
     )
+}
+
+let id = 0
+function idOf(s: string): number {
+    if (idMap.has(s)) {
+        return idMap.get(s)!
+    }
+    // const id = (Math.random() * 1_000_000_000) | 0
+    id += 1
+    idMap.set(s, id)
+    nameMap.set(id, s)
+    return id
 }
 
 // async function loadStars() {
