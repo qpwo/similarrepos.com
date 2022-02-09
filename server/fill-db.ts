@@ -17,8 +17,7 @@ const numStargazerRows = 3_139_019
 const path = '/Users/l/Downloads/github-data'
 
 const n = numStargazerRows
-makeIdxs()
-function makeIdxs() {
+function _makeIdxs() {
     // log('making userStarIdx...')
     // db.prepare(`CREATE INDEX userStarIdx ON stars (userId);`).run()
 
