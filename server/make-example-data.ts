@@ -135,6 +135,27 @@ const _threeJoinQuery = sql`
     WHERE r2.repoName = "eighty";
 `
 
+const _superQuery = sql`
+    SELECT r1.repoName, COUNT(*) as num FROM repoIds r1
+    INNER JOIN stars s1 ON r1.repoId = s1.repoId
+    INNER JOIN stars s2 ON s1.userId = s2.userId
+    INNER JOIN repoIds r2 ON r2.repoId = s2.repoId
+    WHERE r2.repoName = "eighty"
+    GROUP BY r1.repoName
+    ORDER BY num DESC
+    LIMIT 4;
+`
+
+const _basicQueryButCounted = sql`
+    SELECT s1.repoID, COUNT(*) as num
+    FROM stars s1
+    INNER JOIN stars s2 ON s1.userId = s2.userId
+    WHERE s2.repoId = 80
+    GROUP BY s1.repoId
+    ORDER BY num DESC
+    LIMIT 4;
+`
+
 const _makeIndexes = sql`
 
     CREATE INDEX userStarIdx

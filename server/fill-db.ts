@@ -37,8 +37,8 @@ function makeIdxs() {
     log('making useridIdx...')
     db.prepare(`CREATE  INDEX useridIdx ON userIds (userId);`).run()
 }
-function log(...args: unknown[]): void {
-    console.log(new Date().toLocaleString(), ...args)
+export function log(...args: unknown[]): void {
+    console.log(new Date().toLocaleString(), memoryUsed(), ...args)
     appendFileSync(
         'log.txt',
         JSON.stringify([new Date().toLocaleString(), memoryUsed(), ...args]) +
