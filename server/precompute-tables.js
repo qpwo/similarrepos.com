@@ -5,8 +5,9 @@ const ten17 = 10 ** 17
 const numStargazerRows = 3_139_019
 const path = '/Users/l/Downloads/github-data'
 
-const table = new Map()
-
+const gazers = new Map()
+const stars = new Map()
+const similar = new Map()
 const idMap = new Map()
 let idCounter = 0
 function idOf(x) {
@@ -16,7 +17,7 @@ function idOf(x) {
     return idCounter
 }
 
-const n = 1_000_000
+const n = 40_000
 function log(...args) {
     console.log(new Date().toLocaleString(), memoryUsed(), ...args)
     appendFileSync(
@@ -26,11 +27,41 @@ function log(...args) {
     )
 }
 
+function precomputeSimilar() {
+    let i = 0
+    for (const r of gazers.keys()) {
+        if (i % 100 === 0) {
+            log('precomputed', frac(i, gazers.size))
+        }
+        similar[r] = topSimilar(r)
+        i++
+    }
+}
+
+function topSimilar(repo) {
+    const users = gazers.get(repo)
+    const counts = {}
+    for (const u of users) {
+        for (const r of stars.get(u)) {
+            counts[r] = (counts[r] ?? 0) + 1
+        }
+    }
+    const entries = Object.entries(counts)
+    entries.sort((e1, e2) => e1[1] - e2[1])
+    return entries.slice(0, 5).map(e => e[0])
+}
+
 void main()
 async function main() {
-    log('\n\n\nAPPROACH:', process.argv[2])
+    log('\n\n\nAPPROACH:', process.argv[2], 'n:', n)
     const start = Date.now()
     await loadGazers(n)
+    log('done loading gazers precomputing similar')
+    precomputeSimilar()
+    log('done precomputing. deleting gazers and stars')
+    delete gazers
+    delete stars
+    log('done deleting')
     const end = Date.now()
     log('duration:', end - start)
     log('n was', n)
@@ -52,7 +83,15 @@ async function loadGazers(n = -1) {
                 log('on line', frac(num, numStargazerRows))
             }
             const cols = line.split('\t').map(idOf)
-            table.set(cols[0], cols.slice(1))
+            const users = cols.slice(1)
+            const repo = cols[0]
+            gazers.set(repo, users)
+            for (const user of users) {
+                if (!stars.has(user)) {
+                    stars.set(user, [])
+                }
+                stars.get(user).push(repo)
+            }
         },
         n
     )
