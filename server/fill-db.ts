@@ -1,5 +1,5 @@
-// rm -f fill-db.js sqlite.db && tsc fill-db.ts --esModuleInterop && echo 'starting' && node fill-db.js
-
+// rm -f fill-db.js && tsc fill-db.ts --esModuleInterop && echo 'starting' && node fill-db.js
+// also: node --max-old-space-size=12000
 // const db = new AceBase('mydb', { logLevel: 'error' }) // Creates or opens a database with name "mydb"
 import sqlite from 'better-sqlite3'
 import { appendFileSync, createReadStream } from 'fs'
@@ -9,79 +9,117 @@ import { sql } from './util'
 
 const db = sqlite('sqlite.db')
 
-const idMap: Map<string, number> = new Map()
-const nameMap: Map<number, string> = new Map()
+const userIdMap: Map<string, number> = new Map()
+const repoIdMap: Map<string, number> = new Map()
 
+const ten17 = 10 ** 17
 const numStargazerRows = 3_139_019
-const numStarsRows = 3_032_978
 const path = '/Users/l/Downloads/github-data'
 
-const n = 100_000
+const n = numStargazerRows
+makeIdxs()
+function makeIdxs() {
+    // log('making userStarIdx...')
+    // db.prepare(`CREATE INDEX userStarIdx ON stars (userId);`).run()
 
+    // log('making repoStarIdx...')
+    // db.prepare(`CREATE INDEX repoStarIdx ON stars (repoId);`).run()
+
+    // log('making reponameIdx...')
+    // db.prepare(`CREATE UNIQUE INDEX reponameIdx ON repoIds (repoName);`).run()
+
+    // log('making repoidIdx...') // apparently this one isn't unique lol
+    // db.prepare(`CREATE  INDEX repoidIdx ON repoIds (repoId);`).run()
+
+    // log('making usernameIdx...')
+    // db.prepare(`CREATE UNIQUE INDEX usernameIdx ON userIds (userName);`).run()
+
+    log('making useridIdx...')
+    db.prepare(`CREATE  INDEX useridIdx ON userIds (userId);`).run()
+}
 function log(...args: unknown[]): void {
     console.log(new Date().toLocaleString(), ...args)
     appendFileSync(
         'log.txt',
-        JSON.stringify([new Date().toLocaleString(), ...args]) + '\n'
+        JSON.stringify([new Date().toLocaleString(), memoryUsed(), ...args]) +
+            '\n'
     )
 }
 
-void main()
-async function main() {
+// void main()
+async function _main() {
     log('\n\n\nAPPROACH:', process.argv[2])
     const start = Date.now()
     db.prepare(
         sql`CREATE TABLE stars (
-            user INT,
-            repo INT
+            userId INT NOT NULL,
+            repoId INT NOT NULL
       )`
     ).run()
     db.prepare(
-        sql`CREATE TABLE nameOf (
-            id INT,
-            string VARCHAR(50)
+        sql`CREATE TABLE repoIds (
+            repoName VARCHAR(50) NOT NULL,
+            repoId INT NOT NULL
+            -- FOREIGN KEY (repoId) REFERENCES stars(repoId)
+      )`
+    ).run()
+    db.prepare(
+        sql`CREATE TABLE userIds (
+            userName VARCHAR(50) NOT NULL,
+            userId INT NOT NULL
+            -- FOREIGN KEY (userId) REFERENCES stars(userId)
       )`
     ).run()
 
-    const insert = db.prepare(
-        sql`INSERT INTO stars (user, repo) VALUES (@user, @repo)`
+    const insertStar = db.prepare(
+        sql`INSERT INTO stars (userId, repoId) VALUES (?, ?)`
     )
-
-    const insertMany = db.transaction(pairs => {
-        for (const pair of pairs) insert.run(pair)
+    const insertStars = db.transaction((pairs: [number, number][]) => {
+        for (const pair of pairs) insertStar.run(pair)
     })
 
     log('loading all gazers')
-    await loadGazers(insertMany, n)
+    await loadGazers(insertStars, n)
 
-    const insertName = db.prepare(
-        sql`INSERT INTO nameOf (id, string) VALUES (@id, @string)`
+    const insertRepo = db.prepare(
+        sql`INSERT INTO repoIds (repoName, repoId) VALUES (?, ?)`
     )
-    const insertNames = db.transaction(pairs => {
-        for (const p of pairs) insertName.run(p)
+    const insertRepos = db.transaction((pairs: [string, number][]) => {
+        for (const p of pairs) insertRepo.run(p)
     })
-    // log('inserting names in batches')
-    const pairs: { id: number; string: string }[] = []
-    idMap.forEach((val, key) => {
-        // if (pairs.length >= databaseBatchSize) {
-        //     insertNames(pairs)
-        // }
-        pairs.push({ id: val, string: key })
+    const insertUser = db.prepare(
+        sql`INSERT INTO userIds (userName, userId) VALUES (?, ?)`
+    )
+    const insertUsers = db.transaction((pairs: [string, number][]) => {
+        for (const p of pairs) insertUser.run(p)
     })
-    // log('done inserting names')
 
-    log('inserting names')
-    insertNames(pairs)
+    // log('inserting names in batches')
+    // const pairs: { id: number; string: string }[] = []
+    log('inserting repos')
+    insertRepos(Array.from(repoIdMap.entries()))
+    log('inserting users')
+    insertUsers(Array.from(userIdMap.entries()))
+    // idMap.forEach((val, key) => {
+    //     pairs.push({ id: val, string: key })
+    // })
+
+    // insertNames(pairs)
     const end = Date.now()
     log('duration:', end - start)
     log('n was', n)
-    const used = process.memoryUsage().heapUsed / 1024 / 1024
-    log(`The script uses approximately ${Math.round(used * 100) / 100} MB`)
+    log(`The script uses approximately ${memoryUsed()}`)
 }
 
-type Pair = { user: number; repo: number }
-const progressUpdateSize = 10_000
-const databaseBatchSize = 30_000
+// type Pair = { user: number; repo: number }
+type Pair = [number, number] // [user, repo]
+const progressUpdateSize = 100_000
+const databaseBatchSize = 100_000
+function memoryUsed() {
+    const used = process.memoryUsage().heapUsed / 1024 / 1024
+    return `${Math.round(used * 100) / 100} MB`
+}
+
 async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
     let pairs: Pair[] = []
     await processLines(
@@ -101,9 +139,9 @@ async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
                 pairs = []
             }
             const cols = line.split('\t')
-            const repo = idOf(cols[0])
+            const repo = repoId(cols[0])
             for (let i = 1; i < cols.length; i++) {
-                pairs.push({ repo, user: idOf(cols[i]) })
+                pairs.push([userId(cols[i]), repo])
             }
         },
         n
@@ -112,26 +150,23 @@ async function loadGazers(insertMany: (ps: Pair[]) => void, n = -1) {
     insertMany(pairs)
 }
 
-let id = 0
-function idOf(s: string): number {
-    if (idMap.has(s)) {
-        return idMap.get(s)!
-    }
-    // const id = (Math.random() * 1_000_000_000) | 0
-    id += 1
-    idMap.set(s, id)
-    nameMap.set(id, s)
+function repoId(s: string): number {
+    if (repoIdMap.has(s)) return repoIdMap.get(s)!
+    const id = makeId()
+    repoIdMap.set(s, id)
     return id
 }
 
-// async function loadStars() {
-//     // TODO
-//     await processLines(path + '/stars.tsv', (line, num) => {
-//         const cols = line.split('\t')
-//         const user = cols[0]
-//         const stars = cols.slice(1)
-//     })
-// }
+function userId(s: string): number {
+    if (userIdMap.has(s)) return userIdMap.get(s)!
+    const id = makeId()
+    userIdMap.set(s, id)
+    return id
+}
+
+function makeId(): number {
+    return (Math.random() * ten17) | 0
+}
 
 function frac(num: number, dem: number): string {
     const percent = ((100 * num) / dem).toFixed(2)
