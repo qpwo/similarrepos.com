@@ -12,7 +12,7 @@ const stars = new Map()
 const idMap = new Map()
 const nameMap = new Map()
 
-const n = 10_000
+const n = numStargazerRows
 const fileReadProgressUpdateInterval = 10_000
 
 let idCounter = 0
@@ -29,7 +29,7 @@ async function main() {
     const start = Date.now()
     await loadGazers(n)
     log('done loading gazers precomputing similar')
-    const keys = Array.from(gazers.keys()).slice(0,100)
+    const keys = Array.from(gazers.keys())
     const numKeys = keys.length
     // precomputeSimilar(keys)
     const batchSize = numKeys/6|0

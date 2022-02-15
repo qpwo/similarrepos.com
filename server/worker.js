@@ -38,9 +38,9 @@ function precomputeSimilar(repos, gazers, stars, nameMap) {
 
 function topSimilar(repo, gazers, stars) {
     const users = gazers.get(repo)
-    // if (users.length <= 1) {
-    //     return []
-    // }
+    if (users.length <= 1) {
+        return []
+    }
     const counts = new Map()
     for (const u of users) {
         for (const r of stars.get(u)) {

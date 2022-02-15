@@ -4,3 +4,4 @@
 *.backup
 log.txt
 fill-db.js
+node_modules/
