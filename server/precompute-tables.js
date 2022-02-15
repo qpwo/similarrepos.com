@@ -12,7 +12,7 @@ const stars = new Map()
 const idMap = new Map()
 const nameMap = new Map()
 
-const n = numStargazerRows
+const n = 100_000
 const fileReadProgressUpdateInterval = 10_000
 
 let idCounter = 0

@@ -44,7 +44,7 @@ function precomputeSimilar(repos, gazers, stars){//, nameMap) {
         // ])
         // if (niceSimilar.length > 0)
         if (similar.length > 0)
-            appendFileSync('similar.jsonl', JSON.stringify(similar) + '\n')
+            appendFileSync('similar.jsonl', JSON.stringify([r, similar]) + '\n')
             // appendFileSync('similar.jsonl', JSON.stringify(niceSimilar) + '\n')
         i++
     }
@@ -62,6 +62,6 @@ function topSimilar(repo, gazers, stars) {
         }
     }
     const entries = Array.from(counts.entries())
-    entries.sort((e1, e2) => e1[1] - e2[1])
+    entries.sort((e1, e2) =>  e2[1] - e1[1])
     return entries.slice(0, 100)
 }
