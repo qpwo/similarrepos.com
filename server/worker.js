@@ -1,17 +1,28 @@
-const { parentPort, workerData } = require('worker_threads')
-const { appendFileSync } = require('fs')
+// const { parentPort, workerData } = require('worker_threads')
+const { appendFileSync, readFileSync } = require('fs')
 const { log, frac, hhmmss } = require('./common')
+const { deserialize } = require('v8')
 
-parentPort.postMessage(
-    precomputeSimilar(
-        workerData.keys,
-        workerData.gazers,
-        workerData.stars,
-        workerData.nameMap
-    )
-)
+// parentPort.postMessage(
+//     precomputeSimilar(
+//         workerData.keys,
+//         workerData.gazers,
+//         workerData.stars,
+//         workerData.nameMap
+//     )
+// )
 
-function precomputeSimilar(repos, gazers, stars, nameMap) {
+log('loading stars')
+const stars = deserialize(readFileSync('data/stars'))
+log('loading gazers')
+const gazers = deserialize(readFileSync('data/gazers'))
+log('loading my repos')
+const repos = deserialize(readFileSync(`data/repos${process.argv[2]}`))
+log('processing', repos.length, 'repos...')
+
+precomputeSimilar(repos, gazers, stars)
+
+function precomputeSimilar(repos, gazers, stars){//, nameMap) {
     const precomputeUpdateInterval = 100
     let i = 0
     const start = Date.now()
@@ -26,12 +37,15 @@ function precomputeSimilar(repos, gazers, stars, nameMap) {
             )
         }
         // similar[r] = topSimilar(r)
-        const niceSimilar = topSimilar(r, gazers, stars).map(([r2, count]) => [
-            nameMap.get(r2),
-            count,
-        ])
-        if (niceSimilar.length > 0)
-            appendFileSync('similar.jsonl', JSON.stringify(niceSimilar) + '\n')
+        const similar = topSimilar(r, gazers, stars)
+        // const niceSimilar = topSimilar(r, gazers, stars).map(([r2, count]) => [
+        //     nameMap.get(r2),
+        //     count,
+        // ])
+        // if (niceSimilar.length > 0)
+        if (similar.length > 0)
+            appendFileSync('similar.jsonl', JSON.stringify(similar) + '\n')
+            // appendFileSync('similar.jsonl', JSON.stringify(niceSimilar) + '\n')
         i++
     }
 }
