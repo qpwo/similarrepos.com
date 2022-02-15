@@ -1,63 +1,45 @@
-const { appendFileSync, createReadStream } = require('fs')
+// node --max-old-space-size=12000 precompute-tables.js
+const { Worker } = require('worker_threads')
+const {createReadStream } = require('fs')
 const { createInterface } = require('readline')
+const { memoryUsed, frac, log } = require("./common")
 
-const ten17 = 10 ** 17
 const numStargazerRows = 3_139_019
-const path = '/Users/l/Downloads/github-data'
-
+// const path = '/Users/l/Downloads/github-data'
+const path = '/home/a/Downloads'
 const gazers = new Map()
 const stars = new Map()
-const similar = new Map()
 const idMap = new Map()
+const nameMap = new Map()
+
+const n = 10_000
+const fileReadProgressUpdateInterval = 10_000
+
 let idCounter = 0
 function idOf(x) {
     if (idMap.has(x)) return idMap.get(x)
     idCounter += 1
     idMap.set(x, idCounter)
+    nameMap.set(idCounter, x)
     return idCounter
 }
 
-const n = 40_000
-function log(...args) {
-    console.log(new Date().toLocaleString(), memoryUsed(), ...args)
-    appendFileSync(
-        'log.txt',
-        JSON.stringify([new Date().toLocaleString(), memoryUsed(), ...args]) +
-            '\n'
-    )
-}
-
-function precomputeSimilar() {
-    let i = 0
-    for (const r of gazers.keys()) {
-        if (i % 100 === 0) {
-            log('precomputed', frac(i, gazers.size))
-        }
-        similar[r] = topSimilar(r)
-        i++
-    }
-}
-
-function topSimilar(repo) {
-    const users = gazers.get(repo)
-    const counts = {}
-    for (const u of users) {
-        for (const r of stars.get(u)) {
-            counts[r] = (counts[r] ?? 0) + 1
-        }
-    }
-    const entries = Object.entries(counts)
-    entries.sort((e1, e2) => e1[1] - e2[1])
-    return entries.slice(0, 5).map(e => e[0])
-}
-
-void main()
 async function main() {
     log('\n\n\nAPPROACH:', process.argv[2], 'n:', n)
     const start = Date.now()
     await loadGazers(n)
     log('done loading gazers precomputing similar')
-    precomputeSimilar()
+    const keys = Array.from(gazers.keys()).slice(0,100)
+    const numKeys = keys.length
+    // precomputeSimilar(keys)
+    const batchSize = numKeys/6|0
+    log('starting 6 batches of size', batchSize)
+    new Worker('./worker.js', { workerData: { keys: keys.slice(0,batchSize), gazers, stars, nameMap } })
+    new Worker('./worker.js', { workerData: { keys: keys.slice(batchSize, batchSize*2), gazers, stars, nameMap } })
+    new Worker('./worker.js', { workerData: { keys: keys.slice(batchSize*2, batchSize*3), gazers, stars, nameMap } })
+    new Worker('./worker.js', { workerData: { keys: keys.slice(batchSize*3, batchSize*4), gazers, stars, nameMap } })
+    new Worker('./worker.js', { workerData: { keys: keys.slice(batchSize*4, batchSize*5), gazers, stars, nameMap } })
+    new Worker('./worker.js', { workerData: { keys: keys.slice(batchSize*5), gazers, stars, nameMap } })
     log('done precomputing. deleting gazers and stars')
     delete gazers
     delete stars
@@ -68,18 +50,12 @@ async function main() {
     log(`The script uses approximately ${memoryUsed()}`)
 }
 
-function memoryUsed() {
-    const used = process.memoryUsage().heapUsed / 1024 / 1024
-    return `${Math.round(used * 100) / 100} MB`
-}
-
-const progressUpdateSize = 10_000
 async function loadGazers(n = -1) {
     let pairs = []
     await processLines(
         path + '/stargazers.tsv',
         (line, num) => {
-            if (num % progressUpdateSize === 0) {
+            if (num % fileReadProgressUpdateInterval === 0) {
                 log('on line', frac(num, numStargazerRows))
             }
             const cols = line.split('\t').map(idOf)
@@ -118,7 +94,4 @@ async function processLines(filename, handleLine, maxCount = -1) {
     }
 }
 
-function frac(num, dem) {
-    const percent = ((100 * num) / dem).toFixed(2)
-    return `${num.toLocaleString()}/${dem.toLocaleString()} (${percent}%)`
-}
+void main()
