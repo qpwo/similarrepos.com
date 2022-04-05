@@ -1,1 +1,0 @@
-var protobuf = require("protobufjs");
