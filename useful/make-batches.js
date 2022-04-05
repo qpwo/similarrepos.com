@@ -105,25 +105,4 @@ async function loadGazers(n = -1) {
     )
 }
 
-async function processLines(filename, handleLine, maxCount = -1) {
-    const fileStream = createReadStream(filename)
-
-    const rl = createInterface({
-        input: fileStream,
-        crlfDelay: Infinity,
-    })
-    // Note: we use the crlfDelay option to recognize all instances of CR LF
-    // ('\r\n') in input.txt as a single line break.
-
-    let count = 0
-    for await (const line of rl) {
-        count += 1
-        if (maxCount > 0 && count > maxCount) {
-            break
-        }
-        // Each line in input.txt will be successively available here as `line`.
-        handleLine(line, count)
-    }
-}
-
 void main()
