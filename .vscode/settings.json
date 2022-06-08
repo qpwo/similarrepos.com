@@ -1,6 +1,7 @@
 {
     "files.exclude": {
-        "**/*.acebase/": true
+        "**/*.acebase/": true,
+        "db": true
     },
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true

@@ -4,3 +4,5 @@
 *.backup
 log.txt
 fill-db.js
+/db/
+/ignore
