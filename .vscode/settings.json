@@ -8,5 +8,12 @@
     "eslint.format.enable": true,
     "eslint.options": {
         "cache": true
+    },
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#620302",
+        "titleBar.activeBackground": "#890403",
+        "titleBar.activeForeground": "#FFFBFB",
+        "statusBar.background": "#890403",
+        "statusBar.foreground": "#FFFBFB"
     }
 }
