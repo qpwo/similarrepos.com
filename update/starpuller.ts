@@ -7,7 +7,7 @@ import fetch from 'node-fetch'
 // import tokens from '../ignore/tokens.json'
 
 // const token = tokens[0]
-const token = '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'
+const token = ''
 
 // declare const brand: unique symbol
 // type Brand<K, T> = K & { readonly ___: T }
@@ -117,6 +117,7 @@ export async function getAllEdges(
     // MARK: could filter out recently-fetched items here
 
     const targetsOf: Record<Source, Target[]> = {}
+    items.forEach(item => (targetsOf[item] = []))
     const failures: Source[] = []
     const cursors: Record<Source, string | undefined> = {}
     const currentSources = new Set(items.slice(items.length - batchSize))
@@ -211,7 +212,7 @@ export async function getStarCounts(
     }
 }
  */
-const uidOf = memoize((s: string) => Math.random().toString().slice(2))
+const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
 
 async function test() {
     const out = await getAllEdges(
