@@ -1,8 +1,10 @@
 {
     "dependencies": {
+        "@types/lodash": "^4.14.182",
         "classic-level": "^1.2.0",
         "dedent": "^0.7.0",
         "koa": "^2.13.4",
+        "lodash": "^4.17.21",
         "node-fetch": "^3.2.5"
     },
     "devDependencies": {

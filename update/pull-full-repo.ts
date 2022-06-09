@@ -2,8 +2,8 @@
 
 import localForage from 'localforage'
 
-import type { ItemInfo } from './starpuller.js';
-import { batchLoop, getStarCounts } from './starpuller.js'
+import type { ItemInfo } from './starpuller.js'
+import { getAllEdges, getStarCounts } from './starpuller.js'
 
 function updateLoginButton() {
     if (window.localStorage.getItem('token')) {
@@ -36,7 +36,7 @@ async function asyncMap<T, S>(arr: T[], f: (t: T) => Promise<S>) {
 export async function doRepo(repo: string) {
     // const repo = repoInput.value
     logger('Getting stargazers of repo')
-    await batchLoop([repo], 'stargazers', 50, logger)
+    await getAllEdges([repo], 'stargazers', 50, logger)
     logger('Got stargazers of repo')
     const lfRepo: ItemInfo | null = await localForage.getItem(repo)
     if (lfRepo == null) {
@@ -45,7 +45,7 @@ export async function doRepo(repo: string) {
     // if (!collector[repo].failed) {
     const repo_items = lfRepo.items
     logger(`Getting stars of ${repo_items.length} stargazers`)
-    await batchLoop(repo_items, 'stars', 50, logger)
+    await getAllEdges(repo_items, 'stars', 50, logger)
     logger('Got stars of stargazers')
     // }
     const itemsOf = async (user: string) => {

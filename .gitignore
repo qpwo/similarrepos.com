@@ -9,3 +9,4 @@ fill-db.js
 *.tsv
 .DS_Store
 node_modules/
+*.backup

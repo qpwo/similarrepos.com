@@ -1,19 +1,25 @@
+#! esbuild --bundle --platform=node update/starpuller.ts --sourcemap  --outfile=build.js && node build.js
+
 'use strict'
 
-import { ClassicLevel } from 'classic-level'
+import { memoize } from 'lodash'
 import fetch from 'node-fetch'
-import tokens from '../ignore/tokens.json'
+// import tokens from '../ignore/tokens.json'
 
-const token = tokens[0]
+// const token = tokens[0]
+const token = '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'
 
-declare const brand: unique symbol
-type Brand<K, T> = K & { readonly ___: T }
-type Repo = Brand<string, 'Repo'>
-type User = Brand<string, 'User'>
+// declare const brand: unique symbol
+// type Brand<K, T> = K & { readonly ___: T }
+// type Repo = Brand<string, 'Repo'>
+// type User = Brand<string, 'User'>
+type Repo = string & { ___?: 'repo' }
+type User = string & { ___?: 'user' }
 
-const db_ = new ClassicLevel('db', { valueEncoding: 'json' })
-const starsdb = db_.sublevel<User, Repo[]>('stars', { valueEncoding: 'json' })
-const gazersdb = db_.sublevel<Repo, User[]>('gazers', { valueEncoding: 'json' })
+// import { ClassicLevel } from 'classic-level'
+// const db_ = new ClassicLevel('db', { valueEncoding: 'json' })
+// const starsdb = db_.sublevel<User, Repo[]>('stars', { valueEncoding: 'json' })
+// const gazersdb = db_.sublevel<Repo, User[]>('gazers', { valueEncoding: 'json' })
 
 const rateLimitQuery = 'rateLimit { cost remaining resetAt }'
 const failure = Symbol('failure')
@@ -51,7 +57,7 @@ function stargazerCountQuery(repo: string, alias = '') {
     return `${alias}repository(owner: "${owner}", name: "${name}") { stargazerCount }`
 }
 
-async function runQuery(query: string) {
+async function runQuery(query: string): Promise<any | typeof failure> {
     // console.log("Running query:", query)
     try {
         const response = await fetch('https://api.github.com/graphql', {
@@ -83,8 +89,8 @@ async function asyncFilter<T>(arr: T[], predicate: (t: T) => Promise<boolean>) {
     return arr.filter((_v, index) => results[index])
 }
 
-const maxStars = 100
-const maxStargazers = 500
+const maxStars = 10
+const maxStargazers = 10
 
 export type ItemInfo = {
     failed: boolean
@@ -94,95 +100,76 @@ export type ItemInfo = {
     stargazerCount: null | number
     lastCursor?: string
 }
-function makeItemInfo(name: string): ItemInfo {
-    return { failed: false, done: false, items: [], name, stargazerCount: null }
-}
 
-// TODO: mode for getting the stargazer count of many repos
-export async function batchLoop(
-    items: string[],
-    mode: 'stars' | 'stargazers',
+type Source = string & { __?: undefined }
+type Target = string & { __?: undefined }
+export async function getAllEdges(
+    mode: 'stars' | 'gazers',
+    items: Source[],
     batchSize: number,
     logger: (s: string) => void
-) {
-    // const item = items[0]
-    // TODO: pack variables into objects
+): Promise<{ results: Record<Source, Target[]>; failures: Source[] }> {
     const [part1, part2, makeQuery, max] =
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, maxStars]
             : ['stargazers', 'login', repoQuery, maxStargazers]
-    // console.log("unfiltered items:", items)
-    items = await asyncFilter(items, async item => {
-        const lfi = (await localForage.getItem(item)) as ItemInfo
-        return lfi == null || lfi.done != true
-    })
-    // console.log("filtered items:", items)
-    const uidOf = makeDefaultDict(makeUid)
-    const cursors: Record<string, string | undefined> = {}
-    const currentItems = items.slice(items.length - batchSize)
-    let pointer = currentItems.length
-    for (const item of items) {
-        const x = (await localForage.getItem(item)) as ItemInfo
-        cursors[item] = x ? x.lastCursor : undefined
-    }
-    while (currentItems.length > 0) {
-        // TODO: save last cursor as you go, and restart from last cursor if possible
-        // TODO maybe: use sets so you never get duplicate entries in star list.
-        // TODO: use promises or async or whatever
+
+    // MARK: could filter out recently-fetched items here
+
+    const targetsOf: Record<Source, Target[]> = {}
+    const failures: Source[] = []
+    const cursors: Record<Source, string | undefined> = {}
+    const currentSources = new Set(items.slice(items.length - batchSize))
+    let pointer = currentSources.size
+    while (currentSources.size > 0) {
         logger(
-            `Completed ${pointer - currentItems.length} out of ${items.length}`
+            `Completed ${pointer - currentSources.size} out of ${items.length}`
         )
-        const queryParts = currentItems.map(item =>
-            makeQuery(item, uidOf[item], cursors[item])
+        const queryParts = [...currentSources].map(item =>
+            makeQuery(item, uidOf(item), cursors[item])
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query)
         if (result === failure) {
             console.error('query failed')
-            // TODO: retry it or something?
             break
         }
-        for (const item of [...currentItems]) {
-            let coll_i = (await localForage.getItem(item)) as ItemInfo
-            if (coll_i == null) {
-                coll_i = makeItemInfo(item)
-            }
-
-            const uid = uidOf[item]
+        for (const item of [...currentSources]) {
+            const uid = uidOf(item)
             if (!result?.data?.[uid]) {
-                // if (!has(result["data"], uid)) {
-                logger(`Dropping item ${item} because it caused errors`)
-                remove(currentItems, item)
-                coll_i.done = true
-                coll_i.failed = true
-                await localForage.setItem(item, coll_i)
+                logger(
+                    `Dropping item ${item} because it caused errors: ${JSON.stringify(
+                        result
+                    )}`
+                )
+                currentSources.delete(item)
+                failures.push(item)
                 continue
             }
             const edges = result['data'][uid][part1]['edges']
-            edges.forEach((e: any) => coll_i.items.push(e['node'][part2]))
-            if (edges.length < 100 || coll_i.items.length >= max) {
-                remove(currentItems, item)
-                coll_i.done = true
-                // console.log(`Finished item "${item}". There are ${currentItems.length} currentItems and ${items.length - pointer} left after that.`)
-                // NOTE: if this was async generator then we could yield item here.
+            edges.forEach((e: any) => targetsOf[item].push(e['node'][part2]))
+            if (edges.length < 100 || targetsOf[item].length >= max) {
+                currentSources.delete(item)
             } else {
                 const cursor = edges[edges.length - 1]['cursor']
                 cursors[item] = cursor
-                coll_i.lastCursor = cursor
+                // MARK: could save lastCursor here. lastCursor = cursor
             }
-            await localForage.setItem(item, coll_i)
         }
-        if (currentItems.length < batchSize && pointer < items.length) {
+        if (currentSources.size < batchSize && pointer < items.length) {
             const addCount = Math.min(
-                batchSize - currentItems.length,
+                batchSize - currentSources.size,
                 items.length - pointer
             )
-            currentItems.push(...items.slice(pointer, pointer + addCount))
+            items
+                .slice(pointer, pointer + addCount)
+                .forEach(item => currentSources.add(item))
             pointer += addCount
         }
     }
+    return { results: targetsOf, failures }
 }
-
+/*
 export async function getStarCounts(
     items: string[],
     batchSize: number,
@@ -201,7 +188,7 @@ export async function getStarCounts(
         )
         const currentItems = items.slice(pointer, pointer + batchSize)
         const queryParts = currentItems.map(item =>
-            stargazerCountQuery(item, uidOf[item])
+            stargazerCountQuery(item, uidOf(item))
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query)
@@ -213,7 +200,7 @@ export async function getStarCounts(
             // TODO: Could be in a separate table for faster read/write
             const coll_i: ItemInfo =
                 (await localForage.getItem(item)) ?? makeItemInfo(item)
-            const uid = uidOf[item]
+            const uid = uidOf(item)
             if (!has(result['data'], uid)) {
                 logger(`Item ${item} caused errors`)
                 continue
@@ -223,3 +210,18 @@ export async function getStarCounts(
         }
     }
 }
+ */
+const uidOf = memoize((s: string) => Math.random().toString().slice(2))
+
+async function test() {
+    const out = await getAllEdges(
+        'gazers',
+        ['preactjs/preact'],
+        10,
+        console.log
+    )
+    console.log(out)
+    console.log(JSON.stringify(out))
+}
+
+void test()

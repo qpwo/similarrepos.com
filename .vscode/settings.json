@@ -3,6 +3,7 @@
         "**/*.acebase/": true,
         "db": true,
         "**/*.tsv": true,
+        "**/*.backup": true
     },
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true
