@@ -1,6 +1,7 @@
 {
     "dependencies": {
         "@types/lodash": "^4.14.182",
+        "@types/node": "^17.0.41",
         "classic-level": "^1.2.0",
         "dedent": "^0.7.0",
         "koa": "^2.13.4",
