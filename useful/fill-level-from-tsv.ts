@@ -3,8 +3,8 @@ import { ClassicLevel } from "classic-level"
 import { createInterface } from "readline"
 
 const [filename, dbName] =
-    ['stargazers.tsv', 'gazers']
-// ['stars.tsv', 'stars']
+    // ['stargazers.tsv', 'gazers']
+    ['stars.tsv', 'stars']
 const db_ = new ClassicLevel("db", { valueEncoding: 'json' })
 type Key = string
 
@@ -28,6 +28,7 @@ async function main() {
             log('did batch')
         }
         const [key, ...value] = line.split('\t')
+        // console.log({ key, value: value.slice(0, 10) })
         batch.push({ type: 'put', key, value })
 
     }

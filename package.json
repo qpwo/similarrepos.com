@@ -2,7 +2,8 @@
     "dependencies": {
         "classic-level": "^1.2.0",
         "dedent": "^0.7.0",
-        "koa": "^2.13.4"
+        "koa": "^2.13.4",
+        "node-fetch": "^3.2.5"
     },
     "devDependencies": {
         "@types/koa": "^2.13.4"

@@ -1,39 +1,25 @@
 'use strict'
 
-import localForage from 'localforage'
+import { ClassicLevel } from 'classic-level'
+import fetch from 'node-fetch'
+import tokens from '../ignore/tokens.json'
 
-const token = localStorage.getItem('token')
+const token = tokens[0]
+
+declare const brand: unique symbol
+type Brand<K, T> = K & { readonly ___: T }
+type Repo = Brand<string, 'Repo'>
+type User = Brand<string, 'User'>
+
+const db_ = new ClassicLevel('db', { valueEncoding: 'json' })
+const starsdb = db_.sublevel<User, Repo[]>('stars', { valueEncoding: 'json' })
+const gazersdb = db_.sublevel<Repo, User[]>('gazers', { valueEncoding: 'json' })
+
 const rateLimitQuery = 'rateLimit { cost remaining resetAt }'
 const failure = Symbol('failure')
 
 function has(object: {}, property: string) {
     return Object.prototype.hasOwnProperty.call(object, property)
-}
-
-function makeDefaultDict<T>(factory: (s: string) => T) {
-    return new Proxy(
-        {},
-        {
-            get(target: Record<string, T>, name: string) {
-                if (!has(target, name)) {
-                    target[name] = factory(name)
-                }
-                return target[name]
-            },
-        }
-    )
-}
-
-function makeUid() {
-    const length = 7
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    let result = ''
-    for (let i = 0; i < length; i++) {
-        result += characters.charAt(
-            Math.floor(Math.random() * characters.length)
-        )
-    }
-    return result
 }
 
 function repoQuery(repo: string, alias = '', cursor = '') {
@@ -70,7 +56,7 @@ async function runQuery(query: string) {
     try {
         const response = await fetch('https://api.github.com/graphql', {
             method: 'POST',
-            body: JSON.stringify({ query: query }),
+            body: JSON.stringify({ query }),
             headers: {
                 Authorization: 'token ' + token,
             },
@@ -195,7 +181,6 @@ export async function batchLoop(
             pointer += addCount
         }
     }
-    
 }
 
 export async function getStarCounts(
@@ -237,5 +222,4 @@ export async function getStarCounts(
             await localForage.setItem(item, coll_i)
         }
     }
-    
 }

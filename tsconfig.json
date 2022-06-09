@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "esnext",
+        "strict": true,
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "lib": ["esnext", ],
+        "types": ["node"],
+        "isolatedModules": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "experimentalDecorators": true,
+        "rootDir": ".",
+        "outDir": "./tsc-out/"
+    },
+    "exclude": ["node_modules", "**/node_modules/*"]
+}
