@@ -6,3 +6,6 @@ log.txt
 fill-db.js
 /db/
 /ignore
+*.tsv
+.DS_Store
+node_modules/
