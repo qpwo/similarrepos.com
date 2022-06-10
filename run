@@ -3,7 +3,10 @@ set -euo pipefail
 export PATH=./node_modules/.bin:$PATH
 
 function test() {
-    start update/test.ts
+    for f in */*.test.ts; do
+        echo "running test on $f"
+        start $f
+    done
 }
 
 function start() {
@@ -15,7 +18,7 @@ function start() {
 
 function build() {
     sourcefile=$1
-    esbuild --bundle --platform=node --sourcemap --outfile=build.js $sourcefile
+    esbuild --bundle --platform=node --external:classic-level --sourcemap --outfile=build.js $sourcefile
 }
 
 function run() {
@@ -23,7 +26,7 @@ function run() {
 }
 
 function clean() {
-    rm -rfv build.js build.js.map
+    rm -rf build.js build.js.map
 }
 
 set -x

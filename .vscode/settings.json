@@ -1,9 +1,10 @@
 {
     "files.exclude": {
         "**/*.acebase/": true,
-        "db": true,
+        "db/": true,
         "**/*.tsv": true,
-        "**/*.backup": true
+        "**/*.backup": true,
+        "garbage/": true
     },
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true

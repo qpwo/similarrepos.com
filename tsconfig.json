@@ -15,6 +15,6 @@
         "rootDir": ".",
         "noEmit": true
     },
-    "include": ["update/*.ts", "useful/*.ts", "main/*.ts"],
+    "include": ["update/*.ts", "legacy/*.ts", "serve/*.ts"],
     "exclude": ["node_modules", "**/node_modules/*"]
 }
