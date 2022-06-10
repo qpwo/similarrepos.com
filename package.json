@@ -14,5 +14,13 @@
         "@types/koa": "^2.13.4",
         "@types/lodash": "^4.14.182",
         "@types/node": "^17.0.41"
+    },
+    "prettier": {
+        "semi": false,
+        "singleQuote": true,
+        "arrowParens": "avoid",
+        "htmlWhitespaceSensitivity": "ignore",
+        "tabWidth": 4,
+        "jsxSingleQuote": true
     }
 }
