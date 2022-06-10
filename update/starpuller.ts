@@ -1,6 +1,5 @@
 import { memoize } from 'lodash'
-import { json } from 'stream/consumers'
-import { userQuery, repoQuery, runQuery, rateLimitQuery } from './queries'
+import { rateLimitQuery, repoQuery, runQuery, userQuery } from './queries'
 import { failure } from './util'
 
 type Source = string & { __?: undefined }
@@ -10,12 +9,14 @@ const maxStars = 10
 const maxStargazers = 10
 const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
 
-export async function getAllEdges(
-    mode: 'stars' | 'gazers',
-    items: Source[],
-    batchSize: number,
+export async function getAllEdges(args: {
+    mode: 'stars' | 'gazers'
+    items: Source[]
+    batchSize: number
     logger: (s: string) => void
-): Promise<{ results: Record<Source, Target[]>; failures: Source[] }> {
+    token: string
+}): Promise<{ results: Record<Source, Target[]>; failures: Source[] }> {
+    const { mode, items, batchSize, logger, token } = args
     const [part1, part2, makeQuery, max] =
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, maxStars]
@@ -37,7 +38,7 @@ export async function getAllEdges(
             makeQuery(item, uidOf(item), cursors[item])
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
-        const result = await runQuery(query)
+        const result = await runQuery(query, token)
         if (result === failure) {
             console.error('query failed')
             break

@@ -1,9 +1,6 @@
 import fetch from 'node-fetch'
 import { failure } from './util'
 
-import tokens from '../ignore/tokens.json'
-const token = tokens[0]
-
 export const rateLimitQuery = 'rateLimit { cost remaining resetAt }'
 
 export function repoQuery(repo: string, alias = '', cursor = '') {
@@ -35,7 +32,10 @@ function stargazerCountQuery(repo: string, alias = '') {
     return `${alias}repository(owner: "${owner}", name: "${name}") { stargazerCount }`
 }
 
-export async function runQuery(query: string): Promise<any | typeof failure> {
+export async function runQuery(
+    query: string,
+    token: string
+): Promise<any | typeof failure> {
     // console.log("Running query:", query)
     try {
         const response = await fetch('https://api.github.com/graphql', {

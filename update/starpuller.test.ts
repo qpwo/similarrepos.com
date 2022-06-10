@@ -1,9 +1,25 @@
 import { getAllEdges } from './starpuller'
+import tokens from '../ignore/tokens.json'
+const token = tokens[0]
 
 async function test() {
     console.log(
-        await getAllEdges('gazers', ['preactjs/preact'], 10, console.log)
+        await getAllEdges({
+            mode: 'gazers',
+            items: ['preactjs/preact'],
+            batchSize: 10,
+            logger: console.log,
+            token,
+        })
     )
-    console.log(await getAllEdges('stars', ['qpwo'], 10, console.log))
+    console.log(
+        await getAllEdges({
+            mode: 'stars',
+            items: ['qpwo'],
+            batchSize: 10,
+            logger: console.log,
+            token,
+        })
+    )
 }
 void test()
