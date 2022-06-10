@@ -10,3 +10,5 @@ fill-db.js
 .DS_Store
 node_modules/
 *.backup
+build.js
+build.js.map

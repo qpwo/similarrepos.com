@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+export PATH=./node_modules/.bin:$PATH
+
+function test() {
+    start update/test.ts
+}
+
+function start() {
+    sourcefile=$1
+    build $1
+    run
+    clean
+}
+
+function build() {
+    sourcefile=$1
+    esbuild --bundle --platform=node --sourcemap --outfile=build.js $sourcefile
+}
+
+function run() {
+    node build.js
+}
+
+function clean() {
+    rm -rfv build.js build.js.map
+}
+
+set -x
+eval "$@"

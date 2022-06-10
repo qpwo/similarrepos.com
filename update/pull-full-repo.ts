@@ -2,8 +2,8 @@
 
 import localForage from 'localforage'
 
-import type { ItemInfo } from './starpuller.js'
-import { getAllEdges, getStarCounts } from './starpuller.js'
+import type { ItemInfo } from './starpuller'
+import { getAllEdges, getStarCounts } from './starpuller'
 
 function updateLoginButton() {
     if (window.localStorage.getItem('token')) {

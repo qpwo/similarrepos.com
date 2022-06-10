@@ -1,108 +1,15 @@
-#! esbuild --bundle --platform=node update/starpuller.ts --sourcemap  --outfile=build.js && node build.js
-
-'use strict'
-
 import { memoize } from 'lodash'
-import fetch from 'node-fetch'
-// import tokens from '../ignore/tokens.json'
-
-// const token = tokens[0]
-const token = ''
-
-// declare const brand: unique symbol
-// type Brand<K, T> = K & { readonly ___: T }
-// type Repo = Brand<string, 'Repo'>
-// type User = Brand<string, 'User'>
-type Repo = string & { ___?: 'repo' }
-type User = string & { ___?: 'user' }
-
-// import { ClassicLevel } from 'classic-level'
-// const db_ = new ClassicLevel('db', { valueEncoding: 'json' })
-// const starsdb = db_.sublevel<User, Repo[]>('stars', { valueEncoding: 'json' })
-// const gazersdb = db_.sublevel<Repo, User[]>('gazers', { valueEncoding: 'json' })
-
-const rateLimitQuery = 'rateLimit { cost remaining resetAt }'
-const failure = Symbol('failure')
-
-function has(object: {}, property: string) {
-    return Object.prototype.hasOwnProperty.call(object, property)
-}
-
-function repoQuery(repo: string, alias = '', cursor = '') {
-    const [owner, name] = repo.split('/')
-    if (cursor) {
-        cursor = `, after: "${cursor}"`
-    }
-    if (alias) {
-        alias = `${alias}: `
-    }
-    return `${alias}repository(owner: "${owner}", name: "${name}") { stargazers(first: 100${cursor}) { edges { cursor node { login } } } }`
-}
-
-function userQuery(user: string, alias = '', cursor = '') {
-    if (cursor) {
-        cursor = `, after: "${cursor}"`
-    }
-    if (alias) {
-        alias = `${alias}: `
-    }
-    return `${alias}user(login: "${user}") { starredRepositories(first: 100${cursor}) { edges { cursor node { nameWithOwner } } } }`
-}
-
-function stargazerCountQuery(repo: string, alias = '') {
-    const [owner, name] = repo.split('/')
-    if (alias) {
-        alias = `${alias}: `
-    }
-    return `${alias}repository(owner: "${owner}", name: "${name}") { stargazerCount }`
-}
-
-async function runQuery(query: string): Promise<any | typeof failure> {
-    // console.log("Running query:", query)
-    try {
-        const response = await fetch('https://api.github.com/graphql', {
-            method: 'POST',
-            body: JSON.stringify({ query }),
-            headers: {
-                Authorization: 'token ' + token,
-            },
-        })
-        const json = await response.json()
-        return json
-    } catch (e) {
-        console.error(e)
-        return failure
-    }
-}
-
-function remove<T>(array: T[], item: T) {
-    const i = array.indexOf(item)
-    if (i == -1) {
-        throw new Error(`remove: ${item} not in ${array}`)
-    }
-    array.splice(i, 1)
-}
-
-async function asyncFilter<T>(arr: T[], predicate: (t: T) => Promise<boolean>) {
-    const results = await Promise.all(arr.map(predicate))
-
-    return arr.filter((_v, index) => results[index])
-}
-
-const maxStars = 10
-const maxStargazers = 10
-
-export type ItemInfo = {
-    failed: boolean
-    done: boolean
-    items: string[]
-    name: string
-    stargazerCount: null | number
-    lastCursor?: string
-}
+import { json } from 'stream/consumers'
+import { userQuery, repoQuery, runQuery, rateLimitQuery } from './queries'
+import { failure } from './util'
 
 type Source = string & { __?: undefined }
 type Target = string & { __?: undefined }
+
+const maxStars = 10
+const maxStargazers = 10
+const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
+
 export async function getAllEdges(
     mode: 'stars' | 'gazers',
     items: Source[],
@@ -170,6 +77,7 @@ export async function getAllEdges(
     }
     return { results: targetsOf, failures }
 }
+
 /*
 export async function getStarCounts(
     items: string[],
@@ -211,18 +119,4 @@ export async function getStarCounts(
         }
     }
 }
- */
-const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
-
-async function test() {
-    const out = await getAllEdges(
-        'gazers',
-        ['preactjs/preact'],
-        10,
-        console.log
-    )
-    console.log(out)
-    console.log(JSON.stringify(out))
-}
-
-void test()
+*/
