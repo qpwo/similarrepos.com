@@ -1,12 +1,9 @@
 import { getAllEdges } from './starpuller'
 
 async function test() {
-    const out = await getAllEdges(
-        'gazers',
-        ['preactjs/preact'],
-        10,
-        console.log
+    console.log(
+        await getAllEdges('gazers', ['preactjs/preact'], 10, console.log)
     )
-    console.log(out)
+    console.log(await getAllEdges('stars', ['qpwo'], 10, console.log))
 }
 void test()
