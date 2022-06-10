@@ -1,23 +1,24 @@
-import { createReadStream, readFileSync } from "fs"
-import { ClassicLevel } from "classic-level"
-import { createInterface } from "readline"
+import { createReadStream, readFileSync } from 'fs'
+import { ClassicLevel } from 'classic-level'
+import { createInterface } from 'readline'
 
 const [filename, dbName] =
     // ['stargazers.tsv', 'gazers']
     ['stars.tsv', 'stars']
-const db_ = new ClassicLevel("db", { valueEncoding: 'json' })
+const db_ = new ClassicLevel('db', { valueEncoding: 'json' })
 type Key = string
 
 type Value = string[]
 
 const db = db_.sublevel<Key, Value>(dbName, { valueEncoding: 'json' })
 
-const log = (...args) => console.log(new Date().toLocaleTimeString(), ...args)
+const log = (...args: any[]) =>
+    console.log(new Date().toLocaleTimeString(), ...args)
 
 main()
 async function main() {
     log('starting batches')
-    const batch: { type: 'put', key: Key, value: Value }[] = []
+    const batch: { type: 'put'; key: Key; value: Value }[] = []
 
     for await (const line of createInterface({
         input: createReadStream(filename),
@@ -30,6 +31,5 @@ async function main() {
         const [key, ...value] = line.split('\t')
         // console.log({ key, value: value.slice(0, 10) })
         batch.push({ type: 'put', key, value })
-
     }
 }

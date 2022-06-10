@@ -6,14 +6,15 @@
         "moduleResolution": "node",
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
-        "lib": ["esnext", ],
+        "lib": ["esnext"],
         "types": ["node"],
         "isolatedModules": true,
         "skipLibCheck": true,
         "resolveJsonModule": true,
         "experimentalDecorators": true,
         "rootDir": ".",
-        "outDir": "./tsc-out/"
+        "noEmit": true
     },
+    "include": ["update/*.ts", "useful/*.ts", "main/*.ts"],
     "exclude": ["node_modules", "**/node_modules/*"]
 }
