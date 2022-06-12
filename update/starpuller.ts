@@ -12,34 +12,35 @@ function getToken() {
 type Source = string & { __?: undefined }
 type Target = string & { __?: undefined }
 
-const maxStars = 30_000
-const maxStargazers = 30_000
+const MAX_STARS = 30_000
+const MAX_GAZERS = 30_000
+const QUERY_BATCH_SIZE = 50
 const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
 
-export async function getAllEdges(args: {
+export async function getAllTargets(args: {
     mode: 'stars' | 'gazers'
-    items: Source[]
-    batchSize: number
-    logger: (s: string) => void
-}): Promise<{ results: Record<Source, Target[]>; failures: Source[] }> {
-    const { mode, items, batchSize, logger } = args
+    sources: Source[]
+    logger?: (s: string) => void
+    onFail: (source: Source) => void
+    onComplete: (source: Source, targets: Target[]) => void
+}): Promise<void> {
+    const { mode, sources, logger = console.log, onFail, onComplete } = args
     const [part1, part2, makeQuery, max] =
         mode == 'stars'
-            ? ['starredRepositories', 'nameWithOwner', userQuery, maxStars]
-            : ['stargazers', 'login', repoQuery, maxStargazers]
-
-    // MARK: could filter out recently-fetched items here
-
+            ? ['starredRepositories', 'nameWithOwner', userQuery, MAX_STARS]
+            : ['stargazers', 'login', repoQuery, MAX_GAZERS]
     const targetsOf: Record<Source, Target[]> = {}
-    items.forEach(item => (targetsOf[item] = []))
-    const failures: Source[] = []
+    sources.forEach(item => (targetsOf[item] = []))
     const cursors: Record<Source, string | undefined> = {}
-    const currentSources = new Set(items.slice(items.length - batchSize))
-    let pointer = currentSources.size
+    const currentSources = new Set<Source>()
+    let numCompleted = 0
+    while (currentSources.size < QUERY_BATCH_SIZE) {
+        const source = sources.pop()
+        if (source == null) break
+        currentSources.add(source)
+    }
     while (currentSources.size > 0) {
-        logger(
-            `Completed ${pointer - currentSources.size} out of ${items.length}`
-        )
+        logger(`Completed ${numCompleted}; ${sources.length} remain`)
         const queryParts = [...currentSources].map(item =>
             makeQuery(item, uidOf(item), cursors[item])
         )
@@ -49,61 +50,63 @@ export async function getAllEdges(args: {
             console.error('query failed')
             break
         }
-        for (const item of [...currentSources]) {
-            const uid = uidOf(item)
+        for (const source of [...currentSources]) {
+            const uid = uidOf(source)
             if (!result?.data?.[uid]) {
                 logger(
-                    `Dropping item ${item} because it caused errors: ${JSON.stringify(
-                        result
+                    `Dropping item ${source} because it caused errors: ${JSON.stringify(
+                        result?.errors
                     )}`
                 )
-                currentSources.delete(item)
-                failures.push(item)
+                currentSources.delete(source)
+                onFail(source)
+                numCompleted++
                 continue
             }
             const edges = result['data'][uid][part1]['edges']
-            edges.forEach((e: any) => targetsOf[item].push(e['node'][part2]))
-            if (edges.length < 100 || targetsOf[item].length >= max) {
-                currentSources.delete(item)
+            if (targetsOf[source] == null) {
+                console.warn('NULL TARGETSOF:', source)
+                targetsOf[source] = []
+            }
+            edges.forEach((e: any) => targetsOf[source].push(e['node'][part2]))
+            if (edges.length < 100 || targetsOf[source].length >= max) {
+                currentSources.delete(source)
+                onComplete(source, targetsOf[source])
+                delete targetsOf[source]
+                numCompleted++
             } else {
                 const cursor = edges[edges.length - 1]['cursor']
-                cursors[item] = cursor
+                cursors[source] = cursor
                 // MARK: could save lastCursor here. lastCursor = cursor
             }
         }
-        if (currentSources.size < batchSize && pointer < items.length) {
-            const addCount = Math.min(
-                batchSize - currentSources.size,
-                items.length - pointer
-            )
-            items
-                .slice(pointer, pointer + addCount)
-                .forEach(item => currentSources.add(item))
-            pointer += addCount
+        while (currentSources.size < QUERY_BATCH_SIZE) {
+            const source = sources.pop()
+            if (source == null) break
+            currentSources.add(source)
         }
     }
-    return { results: targetsOf, failures }
 }
 
 /*
 export async function getStarCounts(
-    items: string[],
+    sources: string[],
     batchSize: number,
     logger: (s: string) => void
 ) {
-    items = await asyncFilter(items, async item => {
+    sources = await asyncFilter(sources, async item => {
         const lfi = (await localForage.getItem(item)) as ItemInfo
         return lfi == null || lfi.stargazerCount == null
     })
     const uidOf = makeDefaultDict(makeUid)
-    for (let pointer = 0; pointer < items.length; pointer += batchSize) {
+    for (let pointer = 0; pointer < sources.length; pointer += batchSize) {
         logger(
             `Getting stargazer counts ${pointer}:${
                 pointer + batchSize
-            } out of ${items.length}`
+            } out of ${sources.length}`
         )
-        const currentItems = items.slice(pointer, pointer + batchSize)
-        const queryParts = currentItems.map(item =>
+        const currentsources = sources.slice(pointer, pointer + batchSize)
+        const queryParts = currentsources.map(item =>
             stargazerCountQuery(item, uidOf(item))
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
@@ -112,7 +115,7 @@ export async function getStarCounts(
             console.error('query failed')
             break
         }
-        for (const item of [...currentItems]) {
+        for (const item of [...currentsources]) {
             // TODO: Could be in a separate table for faster read/write
             const coll_i: ItemInfo =
                 (await localForage.getItem(item)) ?? makeItemInfo(item)

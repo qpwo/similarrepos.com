@@ -22,7 +22,7 @@ function build() {
 }
 
 function run() {
-    node build.js
+    node --enable-source-maps build.js
 }
 
 function clean() {

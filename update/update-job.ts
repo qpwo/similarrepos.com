@@ -7,12 +7,12 @@
 
 import { starsdb, gazersdb, statusdb, Repo, User } from './db'
 import tokens from '../ignore/tokens.json'
-import { getAllEdges } from './starpuller'
+import { getAllTargets } from './starpuller'
 
 const token = tokens[0]
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const expiredDate = new Date(Date.now() - WEEK)
-const DB_BATCH_SIZE = 20
+const DB_BATCH_SIZE = 500
 
 async function main() {
     await cleanDatabases()
@@ -34,7 +34,7 @@ async function cleanDatabases() {
 
 /** Find stars of missing or expired users, and update statusdb */
 async function updateStars() {
-    let batch: User[] = []
+    const sources: User[] = []
     for await (const key of starsdb.keys()) {
         const status = await statusdb.get(key)
         if (status.locked) continue
@@ -42,46 +42,54 @@ async function updateStars() {
         if (status.lastPulled && new Date(status.lastPulled) > expiredDate)
             continue
         await statusdb.put(key, { ...status, locked: true })
-        batch.push(key)
+        sources.push(key)
         await statusdb.put(key, {
             hadError: false,
             lastPulled: new Date().toISOString(),
             type: 'user',
             locked: false,
         })
-        if (batch.length > DB_BATCH_SIZE) break
+        if (sources.length > DB_BATCH_SIZE) break
     }
-    console.log('collected batch from db:', batch)
-    const { failures, results } = await getAllEdges({
+    console.log('collected batch from db:', sources)
+    console.log('_'.repeat(sources.length))
+    await getAllTargets({
         mode: 'stars',
-        items: batch,
-        batchSize: 50,
-        logger: console.log,
+        sources,
+        logger: () => {},
+        onComplete: async (source, targets) => {
+            process.stdout.write('.')
+            statusdb.put(source, {
+                hadError: false,
+                lastPulled: new Date().toISOString(),
+                type: 'user',
+                locked: false,
+            })
+            starsdb.put(source, targets)
+            for (const t of targets) {
+                try {
+                    await statusdb.get(t)
+                } catch {
+                    statusdb.put(t, {
+                        hadError: false,
+                        lastPulled: false,
+                        type: 'repo',
+                        locked: false,
+                    })
+                }
+            }
+        },
+        onFail(source) {
+            process.stdout.write('X')
+            statusdb.put(source, {
+                hadError: true,
+                lastPulled: new Date().toISOString(),
+                type: 'user',
+                locked: false,
+            })
+        },
     })
-    console.log({ failures, results })
-    const b1 = statusdb.batch()
-    for (const user of failures) {
-        b1.put(user, {
-            hadError: true,
-            lastPulled: new Date().toISOString(),
-            type: 'user',
-            locked: false,
-        })
-    }
-    await b1.write()
-    const b2 = statusdb.batch()
-    const sb = starsdb.batch()
-    for (const [user, repos] of Object.entries(results)) {
-        b2.put(user, {
-            hadError: false,
-            lastPulled: new Date().toISOString(),
-            type: 'user',
-            locked: false,
-        })
-        sb.put(user, repos)
-    }
-    await Promise.all([b2.write(), sb.write])
-    console.log('added all to database')
+    console.log('all done')
 }
 
 /** Find gazers of missing or expired repos, and update statusdb */
