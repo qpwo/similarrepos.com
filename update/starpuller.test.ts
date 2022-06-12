@@ -9,7 +9,6 @@ async function test() {
             items: ['preactjs/preact'],
             batchSize: 10,
             logger: console.log,
-            token,
         })
     )
     console.log(
@@ -18,7 +17,6 @@ async function test() {
             items: ['qpwo'],
             batchSize: 10,
             logger: console.log,
-            token,
         })
     )
 }

@@ -1,6 +1,13 @@
 import { memoize } from 'lodash'
 import { rateLimitQuery, repoQuery, runQuery, userQuery } from './queries'
 import { failure } from './util'
+import tokens from '../ignore/tokens.json'
+
+let tokenIdx = 0
+function getToken() {
+    tokenIdx = (tokenIdx + 1) % tokens.length
+    return tokens[tokenIdx]
+}
 
 type Source = string & { __?: undefined }
 type Target = string & { __?: undefined }
@@ -14,9 +21,8 @@ export async function getAllEdges(args: {
     items: Source[]
     batchSize: number
     logger: (s: string) => void
-    token: string
 }): Promise<{ results: Record<Source, Target[]>; failures: Source[] }> {
-    const { mode, items, batchSize, logger, token } = args
+    const { mode, items, batchSize, logger } = args
     const [part1, part2, makeQuery, max] =
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, maxStars]
@@ -38,7 +44,7 @@ export async function getAllEdges(args: {
             makeQuery(item, uidOf(item), cursors[item])
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
-        const result = await runQuery(query, token)
+        const result = await runQuery(query, getToken())
         if (result === failure) {
             console.error('query failed')
             break

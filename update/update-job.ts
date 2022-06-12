@@ -57,7 +57,6 @@ async function updateStars() {
         items: batch,
         batchSize: 50,
         logger: console.log,
-        token,
     })
     console.log({ failures, results })
     const b1 = statusdb.batch()
