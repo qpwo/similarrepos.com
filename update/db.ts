@@ -28,9 +28,11 @@ const db_ = new ClassicLevel('db', {
     valueEncoding: 'json',
     createIfMissing: false,
 })
+/** Ordered from most oldest to newest!! */
 export const starsdb = db_.sublevel<User, Repo[]>('stars', {
     valueEncoding: 'json',
 })
+/** Ordered from most oldest to newest!! */
 export const gazersdb = db_.sublevel<Repo, User[]>('gazers', {
     valueEncoding: 'json',
 })

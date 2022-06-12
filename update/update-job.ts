@@ -6,10 +6,9 @@
  */
 
 import { starsdb, gazersdb, statusdb, Repo, User } from './db'
-import tokens from '../ignore/tokens.json'
 import { getAllTargets } from './starpuller'
+import { uniq } from 'lodash'
 
-const token = tokens[0]
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const expiredDate = new Date(Date.now() - WEEK)
 const DB_BATCH_SIZE = 500
@@ -35,6 +34,8 @@ async function cleanDatabases() {
 /** Find stars of missing or expired users, and update statusdb */
 async function updateStars() {
     const sources: User[] = []
+    const stopAt: Record<User, Repo> = {}
+    console.log('collecting keys')
     for await (const key of starsdb.keys()) {
         const status = await statusdb.get(key)
         if (status.locked) continue
@@ -42,14 +43,17 @@ async function updateStars() {
         if (status.lastPulled && new Date(status.lastPulled) > expiredDate)
             continue
         await statusdb.put(key, { ...status, locked: true })
+
         sources.push(key)
-        await statusdb.put(key, {
-            hadError: false,
-            lastPulled: new Date().toISOString(),
-            type: 'user',
-            locked: false,
-        })
         if (sources.length > DB_BATCH_SIZE) break
+    }
+    console.log('filling stopAt')
+
+    for (const source of sources) {
+        try {
+            const targets = await starsdb.get(source)
+            stopAt[source] = targets[targets.length - 1]
+        } catch {}
     }
     console.log('collected batch from db:', sources)
     console.log('_'.repeat(sources.length))
@@ -57,7 +61,13 @@ async function updateStars() {
         mode: 'stars',
         sources,
         logger: () => {},
+        // stopAt,
         onComplete: async (source, targets) => {
+            const finalTargets =
+                source in stopAt
+                    ? uniq([...(await starsdb.get(source)), ...targets])
+                    : targets
+
             process.stdout.write('.')
             statusdb.put(source, {
                 hadError: false,
@@ -65,7 +75,8 @@ async function updateStars() {
                 type: 'user',
                 locked: false,
             })
-            starsdb.put(source, targets)
+            starsdb.put(source, finalTargets)
+            // add new targets to status db so we will fetch them later
             for (const t of targets) {
                 try {
                     await statusdb.get(t)

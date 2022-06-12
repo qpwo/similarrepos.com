@@ -1,4 +1,4 @@
-import { memoize } from 'lodash'
+import { memoize, reverse } from 'lodash'
 import { rateLimitQuery, repoQuery, runQuery, userQuery } from './queries'
 import { failure } from './util'
 import tokens from '../ignore/tokens.json'
@@ -17,14 +17,23 @@ const MAX_GAZERS = 30_000
 const QUERY_BATCH_SIZE = 50
 const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
 
+/** oldest to newest! */
 export async function getAllTargets(args: {
     mode: 'stars' | 'gazers'
     sources: Source[]
+    stopAt?: Record<Source, Target>
     logger?: (s: string) => void
     onFail: (source: Source) => void
     onComplete: (source: Source, targets: Target[]) => void
 }): Promise<void> {
-    const { mode, sources, logger = console.log, onFail, onComplete } = args
+    const {
+        mode,
+        sources,
+        logger = console.log,
+        onFail,
+        onComplete,
+        stopAt,
+    } = args
     const [part1, part2, makeQuery, max] =
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, MAX_STARS]
@@ -40,7 +49,9 @@ export async function getAllTargets(args: {
         currentSources.add(source)
     }
     while (currentSources.size > 0) {
-        logger(`Completed ${numCompleted}; ${sources.length} remain`)
+        logger(
+            `${currentSources.size} active; ${numCompleted} completed; ${sources.length} remain`
+        )
         const queryParts = [...currentSources].map(item =>
             makeQuery(item, uidOf(item), cursors[item])
         )
@@ -53,10 +64,9 @@ export async function getAllTargets(args: {
         for (const source of [...currentSources]) {
             const uid = uidOf(source)
             if (!result?.data?.[uid]) {
+                const errors = JSON.stringify(result?.errors)
                 logger(
-                    `Dropping item ${source} because it caused errors: ${JSON.stringify(
-                        result?.errors
-                    )}`
+                    `Dropping item ${source} because it caused errors: ${errors}`
                 )
                 currentSources.delete(source)
                 onFail(source)
@@ -64,20 +74,22 @@ export async function getAllTargets(args: {
                 continue
             }
             const edges = result['data'][uid][part1]['edges']
-            if (targetsOf[source] == null) {
-                console.warn('NULL TARGETSOF:', source)
-                targetsOf[source] = []
-            }
-            edges.forEach((e: any) => targetsOf[source].push(e['node'][part2]))
-            if (edges.length < 100 || targetsOf[source].length >= max) {
+            const pageOfTargets: Target[] = reverse(
+                edges.map((e: any) => e['node'][part2])
+            )
+            targetsOf[source].push(...pageOfTargets)
+            if (
+                edges.length < 100 ||
+                targetsOf[source].length >= max ||
+                (stopAt?.[source] && pageOfTargets.includes(stopAt[source]))
+            ) {
                 currentSources.delete(source)
-                onComplete(source, targetsOf[source])
+                onComplete(source, reverse(targetsOf[source]))
                 delete targetsOf[source]
                 numCompleted++
             } else {
-                const cursor = edges[edges.length - 1]['cursor']
+                const cursor = edges[0]['cursor']
                 cursors[source] = cursor
-                // MARK: could save lastCursor here. lastCursor = cursor
             }
         }
         while (currentSources.size < QUERY_BATCH_SIZE) {

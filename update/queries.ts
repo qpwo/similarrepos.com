@@ -3,25 +3,27 @@ import { failure } from './util'
 
 export const rateLimitQuery = 'rateLimit { cost remaining resetAt }'
 
+/** Returns old->new */
 export function repoQuery(repo: string, alias = '', cursor = '') {
     const [owner, name] = repo.split('/')
     if (cursor) {
-        cursor = `, after: "${cursor}"`
+        cursor = `, before: "${cursor}"`
     }
     if (alias) {
         alias = `${alias}: `
     }
-    return `${alias}repository(owner: "${owner}", name: "${name}") { stargazers(first: 100${cursor}) { edges { cursor node { login } } } }`
+    return `${alias}repository(owner: "${owner}", name: "${name}") { stargazers(last: 100${cursor}) { edges { cursor node { login } } } }`
 }
 
+/** Returns old->new */
 export function userQuery(user: string, alias = '', cursor = '') {
     if (cursor) {
-        cursor = `, after: "${cursor}"`
+        cursor = `, before: "${cursor}"`
     }
     if (alias) {
         alias = `${alias}: `
     }
-    return `${alias}user(login: "${user}") { starredRepositories(first: 100${cursor}) { edges { cursor node { nameWithOwner } } } }`
+    return `${alias}user(login: "${user}") { starredRepositories(last: 100${cursor}) { edges { cursor node { nameWithOwner } } } }`
 }
 
 function stargazerCountQuery(repo: string, alias = '') {
