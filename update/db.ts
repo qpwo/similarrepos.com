@@ -7,14 +7,15 @@ type Repo = Brand<string, 'Repo'>
 type User = Brand<string, 'User'>
 */
 
-type Repo = string & { ___?: 'repo' }
-type User = string & { ___?: 'user' }
+export type Repo = string & { ___?: 'repo' }
+export type User = string & { ___?: 'user' }
 
-type IsoDateString = string & { ___?: 'date' }
+export type IsoDateString = string & { ___?: 'date' }
 export interface Status {
     lastPulled: false | IsoDateString
     hadError: boolean
     type: 'repo' | 'user'
+    locked?: boolean
 }
 export interface Costar {
     repo: Repo

@@ -30,4 +30,4 @@ function clean() {
 }
 
 set -x
-eval "$@"
+eval "$@"  | tee -a log.log

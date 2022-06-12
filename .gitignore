@@ -13,3 +13,4 @@ node_modules/
 build.js
 build.js.map
 /garbage/
+*.log

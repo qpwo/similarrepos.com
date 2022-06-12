@@ -5,8 +5,8 @@ import { failure } from './util'
 type Source = string & { __?: undefined }
 type Target = string & { __?: undefined }
 
-const maxStars = 10
-const maxStargazers = 10
+const maxStars = 30_000
+const maxStargazers = 30_000
 const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
 
 export async function getAllEdges(args: {
