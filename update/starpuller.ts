@@ -25,7 +25,7 @@ export async function getAllTargets(args: {
     logger?: (s: string) => void
     onFail: (source: Source) => void
     onComplete: (source: Source, targets: Target[]) => void
-}): Promise<void> {
+}): Promise<{ queriesLeft: boolean }> {
     const {
         mode,
         sources,
@@ -58,7 +58,7 @@ export async function getAllTargets(args: {
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query, getToken())
         const remaining = result.data.rateLimit.remaining
-        if (remaining < 100) return
+        if (remaining < 100) return { queriesLeft: false }
         if (Math.random() < 0.01) {
             console.log('remaining queries:', remaining)
         }
@@ -104,6 +104,7 @@ export async function getAllTargets(args: {
             currentSources.add(source)
         }
     }
+    return { queriesLeft: true }
 }
 
 /*

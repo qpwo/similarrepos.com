@@ -7,8 +7,8 @@ type Repo = Brand<string, 'Repo'>
 type User = Brand<string, 'User'>
 */
 
-export type Repo = string & { ___?: 'repo' }
-export type User = string & { ___?: 'user' }
+export type Repo = string
+export type User = string
 
 export type IsoDateString = string & { ___?: 'date' }
 export interface Status {

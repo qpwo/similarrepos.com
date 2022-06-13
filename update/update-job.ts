@@ -7,84 +7,92 @@
 
 import { starsdb, gazersdb, statusdb, Repo, User } from './db'
 import { getAllTargets } from './starpuller'
-import { range, uniq } from 'lodash'
+import { chunk, range, uniq } from 'lodash'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const expiredDate = new Date(Date.now() - WEEK)
-const DB_BATCH_SIZE = 500
+const DB_BATCH_SIZE = 5000
 
 async function main() {
-    await cleanDatabases()
-    await updateStars()
+    await runDbBatch('gazers')
     await updateGazers()
     await updateCostars()
 }
 
-/** Remove deleted users and repos from the graph.
- * Important because sometimes popular repos change their name or org.
- */
-async function cleanDatabases() {
-    // 1. gather all deleted users
-    // 2. remove them from starsdb keys and gazersdb values
-    // 3. gather all deleted repos
-    // 4. remove them from gazersdb keys and starsdb values
-    // 5. add them to record of deleted repos and users
-}
+async function updateEntireDb() {}
 
-/** Find stars of missing or expired users, and update statusdb */
-async function updateStars() {
+type Source = string
+type Target = string
+/** Find targets of missing or expired sources and update statusdb */
+async function runDbBatch(
+    mode: 'stars' | 'gazers'
+): Promise<{ queriesLeft: boolean }> {
+    const [sourceType, targetType, edgedb] =
+        mode === 'stars'
+            ? (['user', 'repo', starsdb] as const)
+            : (['repo', 'user', gazersdb] as const)
     let numDiscovered = 0
-    const sources: User[] = []
-    const stopAt: Record<User, Repo> = {}
-    console.log('collecting keys')
-    for await (const key of statusdb.keys()) {
-        const status = await statusdb.get(key)
+    const sources: Source[] = []
+    const stopAt: Record<Source, Target> = {}
+    console.log('collecting sources')
+    for await (const source of statusdb.keys()) {
+        const status = await statusdb.get(source)
         if (
-            status.type !== 'user' ||
+            status.type !== sourceType ||
             status.hadError ||
             (status.lastPulled && new Date(status.lastPulled) > expiredDate)
         )
             continue
 
-        sources.push(key as User)
+        sources.push(source)
         if (sources.length >= DB_BATCH_SIZE) break
     }
-    console.log('filling stopAt')
-
     await Promise.all(
         sources.map(async source => {
             try {
-                const targets = await starsdb.get(source)
+                const targets = await edgedb.get(source)
                 stopAt[source] = targets[targets.length - 1]
             } catch {}
         })
     )
-    console.log(`${Object.keys(stopAt).length} queries will stop early`)
-    console.log(`update tables from ${sources[0]} to ${sources.at(-1)}`)
+    console.log(
+        `${Object.keys(stopAt).length}/${
+            sources.length
+        } queries will stop early`
+    )
+    console.log(`updating edgedb from ${sources[0]} to ${sources.at(-1)}`)
     console.log('_'.repeat(sources.length))
-    await getAllTargets({
-        mode: 'stars',
-        sources,
-        logger: () => {},
-        stopAt,
-        onComplete,
-        onFail,
-    })
-    console.log('all done')
-    console.log(`${numDiscovered} new repos discovered`)
+    const chunks = chunk(sources, (sources.length / 4) | 0)
+    const responses = await Promise.all(
+        chunks.map(ch =>
+            getAllTargets({
+                mode,
+                sources: ch,
+                logger: () => {},
+                stopAt,
+                onComplete,
+                onFail,
+            })
+        )
+    )
+    const queriesLeft = responses.every(r => r.queriesLeft)
+    console.log('batch done')
+    console.log(`${numDiscovered} new targets discovered`)
+    return { queriesLeft }
+
     async function onComplete(source: string, targets: string[]) {
         const finalTargets =
             source in stopAt
-                ? uniq([...(await starsdb.get(source)), ...targets])
+                ? uniq([...(await edgedb.get(source)), ...targets])
                 : targets
 
         process.stdout.write('.')
         statusdb.put(source, {
             hadError: false,
             lastPulled: new Date().toISOString(),
-            type: 'user',
+            type: sourceType,
         })
-        starsdb.put(source, finalTargets)
+        edgedb.put(source, finalTargets)
         // add new targets to status db so we will fetch them later
         const targetStatuses = await statusdb.getMany(targets)
         const b = statusdb.batch()
@@ -94,18 +102,19 @@ async function updateStars() {
                 b.put(targets[i], {
                     hadError: false,
                     lastPulled: false,
-                    type: 'repo',
+                    type: targetType,
                 })
             }
         }
         b.write()
     }
+
     async function onFail(source: string) {
         process.stdout.write('X')
         statusdb.put(source, {
             hadError: true,
             lastPulled: new Date().toISOString(),
-            type: 'user',
+            type: sourceType,
         })
     }
 }

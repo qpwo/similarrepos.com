@@ -4,6 +4,7 @@ const db_ = new ClassicLevel('db', {
     createIfMissing: false,
 })
 const starsdb = db_.sublevel('stars', { valueEncoding: 'json' })
+const gazersdb = db_.sublevel('gazers', { valueEncoding: 'json' })
 const statusdb = db_.sublevel('status', { valueEncoding: 'json' })
 await starsdb.get('01brett')
 await starsdb.get('01remi')
