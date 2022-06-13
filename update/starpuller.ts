@@ -57,6 +57,12 @@ export async function getAllTargets(args: {
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query, getToken())
+        const remaining = result.data.rateLimit.remaining
+        if (remaining < 100) return
+        if (Math.random() < 0.01) {
+            console.log('remaining queries:', remaining)
+        }
+
         if (result === failure) {
             console.error('query failed')
             break

@@ -15,7 +15,6 @@ export interface Status {
     lastPulled: false | IsoDateString
     hadError: boolean
     type: 'repo' | 'user'
-    locked?: boolean
 }
 export interface Costar {
     repo: Repo
