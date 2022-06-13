@@ -1,4 +1,4 @@
-import { memoize, reverse } from 'lodash'
+import { memoize, random, reverse } from 'lodash'
 import { rateLimitQuery, repoQuery, runQuery, userQuery } from './queries'
 import { failure } from './util'
 import tokens from '../ignore/tokens.json'
@@ -57,7 +57,11 @@ export async function getAllTargets(args: {
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query, getToken())
-        const remaining = result.data.rateLimit.remaining
+        const remaining = result?.data?.rateLimit?.remaining
+        if (remaining == null) {
+            await sleep(random(500, 5000))
+            continue
+        }
         if (remaining < 100) return { queriesLeft: false }
         if (Math.random() < 0.01) {
             console.log('remaining queries:', remaining)
@@ -105,6 +109,10 @@ export async function getAllTargets(args: {
         }
     }
     return { queriesLeft: true }
+}
+
+async function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 /*

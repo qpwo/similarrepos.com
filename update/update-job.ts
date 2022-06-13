@@ -11,22 +11,42 @@ import { chunk, range, uniq } from 'lodash'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const expiredDate = new Date(Date.now() - WEEK)
-const DB_BATCH_SIZE = 5000
+const DB_BATCH_SIZE = 20_000
+const ESTIMATED_MAX_RECORDS = 10_000_000
+const NUM_PARALLEL_PULLERS = 20
 
 async function main() {
-    await runDbBatch('gazers')
-    await updateGazers()
-    await updateCostars()
+    await updateEntireDb()
+    // await updateCostars()
 }
 
-async function updateEntireDb() {}
+async function updateEntireDb() {
+    const numBatches = (ESTIMATED_MAX_RECORDS / DB_BATCH_SIZE) | 0
+    for (const i of range(numBatches)) {
+        console.log(('\n' + '='.repeat(80) + '\n').repeat(2))
+        console.log(`STARTING BATCH ${i} / ${numBatches}`)
+        for (const mode of ['stars', 'gazers']) {
+            const res = await runDbBatch('gazers')
+            console.log(res)
+            if (!res.queriesLeft) {
+                console.log('OUT OF QUERIES, sleeping half an hour')
+                await sleep(1000 * 60 * 30)
+            }
+            if (res.allSourcesComplete) {
+                console.log('WE ARE DONE')
+                return
+            }
+        }
+        console.log(('\n' + '='.repeat(80) + '\n').repeat(2))
+    }
+}
 
 type Source = string
 type Target = string
 /** Find targets of missing or expired sources and update statusdb */
 async function runDbBatch(
     mode: 'stars' | 'gazers'
-): Promise<{ queriesLeft: boolean }> {
+): Promise<{ queriesLeft: boolean; allSourcesComplete: boolean }> {
     const [sourceType, targetType, edgedb] =
         mode === 'stars'
             ? (['user', 'repo', starsdb] as const)
@@ -44,9 +64,13 @@ async function runDbBatch(
         )
             continue
 
+        // if (sources.length % 100_000 === 0)
+        //     console.log(`gathered ${sources.length} sources`)
         sources.push(source)
         if (sources.length >= DB_BATCH_SIZE) break
     }
+    if (sources.length === 0)
+        return { queriesLeft: true, allSourcesComplete: true }
     await Promise.all(
         sources.map(async source => {
             try {
@@ -62,7 +86,7 @@ async function runDbBatch(
     )
     console.log(`updating edgedb from ${sources[0]} to ${sources.at(-1)}`)
     console.log('_'.repeat(sources.length))
-    const chunks = chunk(sources, (sources.length / 4) | 0)
+    const chunks = chunk(sources, (sources.length / NUM_PARALLEL_PULLERS) | 0)
     const responses = await Promise.all(
         chunks.map(ch =>
             getAllTargets({
@@ -78,7 +102,7 @@ async function runDbBatch(
     const queriesLeft = responses.every(r => r.queriesLeft)
     console.log('batch done')
     console.log(`${numDiscovered} new targets discovered`)
-    return { queriesLeft }
+    return { queriesLeft, allSourcesComplete: false }
 
     async function onComplete(source: string, targets: string[]) {
         const finalTargets =
@@ -127,6 +151,10 @@ async function updateGazers() {
 /** Recompute costar graph with new data */
 async function updateCostars() {
     // throw new Error('Function not implemented.')
+}
+
+async function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 main()
