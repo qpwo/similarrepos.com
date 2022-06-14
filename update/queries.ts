@@ -50,7 +50,8 @@ export async function runQuery(
         const json = await response.json()
         return json
     } catch (e) {
-        console.error(e)
+        console.warn('fetch error:', (e as Error).message)
+        // console.error(e)
         return failure
     }
 }
