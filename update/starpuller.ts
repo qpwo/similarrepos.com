@@ -1,4 +1,4 @@
-import { memoize, random, reverse } from 'lodash'
+import { entries, keys, memoize, random, reverse, size } from 'lodash'
 import { rateLimitQuery, repoQuery, runQuery, userQuery } from './queries'
 import { failure } from './util'
 import tokens from '../ignore/tokens.json'
@@ -15,45 +15,39 @@ type Target = string & { __?: undefined }
 const MAX_STARS = 30_000
 const MAX_GAZERS = 30_000
 const QUERY_BATCH_SIZE = 50
-const uidOf = memoize((s: string) => 'a' + Math.random().toString().slice(2))
+
+type SourceAndStopper = [source: Source, stopper: Target | undefined]
+
+type YieldVal =
+    | {
+          type: 'fail'
+          source: string
+      }
+    | {
+          type: 'complete'
+          source: string
+          targets: Target[]
+      }
 
 /** oldest to newest! */
-export async function getAllTargets(args: {
+export async function* getAllTargets(args: {
     mode: 'stars' | 'gazers'
-    sources: Source[]
-    stopAt?: Record<Source, Target>
-    logger?: (s: string) => void
-    onFail: (source: Source) => void
-    onComplete: (source: Source, targets: Target[]) => void
-}): Promise<{ queriesLeft: boolean }> {
-    const {
-        mode,
-        sources,
-        logger = console.log,
-        onFail,
-        onComplete,
-        stopAt,
-    } = args
+    sources: AsyncGenerator<SourceAndStopper> | Generator<SourceAndStopper>
+}): AsyncGenerator<YieldVal> {
+    const { mode, sources } = args
     const [part1, part2, makeQuery, max] =
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, MAX_STARS]
             : ['stargazers', 'login', repoQuery, MAX_GAZERS]
-    const targetsOf: Record<Source, Target[]> = {}
-    sources.forEach(item => (targetsOf[item] = []))
-    const cursors: Record<Source, string | undefined> = {}
-    const currentSources = new Set<Source>()
-    let numCompleted = 0
-    while (currentSources.size < QUERY_BATCH_SIZE) {
-        const source = sources.pop()
-        if (source == null) break
-        currentSources.add(source)
-    }
-    while (currentSources.size > 0) {
-        logger(
-            `${currentSources.size} active; ${numCompleted} completed; ${sources.length} remain`
-        )
-        const queryParts = [...currentSources].map(item =>
-            makeQuery(item, uidOf(item), cursors[item])
+    const table: Record<
+        Source,
+        { targets: Target[]; cursor?: string; stopAt?: string; uid: string }
+    > = {}
+
+    await refillCurrentSources()
+    while (size(table) > 0) {
+        const queryParts = [...entries(table)].map(
+            ([source, { uid, cursor }]) => makeQuery(source, uid, cursor)
         )
         const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
         const result = await runQuery(query, getToken())
@@ -71,89 +65,53 @@ export async function getAllTargets(args: {
             console.error('query failed')
             break
         }
-        for (const source of [...currentSources]) {
-            const uid = uidOf(source)
+        for (const [source, item] of [...entries(table)]) {
+            const uid = item.uid
             if (!result?.data?.[uid]) {
-                const errors = JSON.stringify(result?.errors)
-                logger(
-                    `Dropping item ${source} because it caused errors: ${errors}`
-                )
-                currentSources.delete(source)
-                onFail(source)
-                numCompleted++
+                // const errors = JSON.stringify(result?.errors)
+                delete table[source]
+                yield { type: 'fail', source }
                 continue
             }
             const edges = result['data'][uid][part1]['edges']
             const pageOfTargets: Target[] = reverse(
                 edges.map((e: any) => e['node'][part2])
             )
-            targetsOf[source].push(...pageOfTargets)
+            item.targets.push(...pageOfTargets)
             if (
                 edges.length < 100 ||
-                targetsOf[source].length >= max ||
-                (stopAt?.[source] && pageOfTargets.includes(stopAt[source]))
+                item.targets.length >= max ||
+                (item.stopAt && pageOfTargets.includes(item.stopAt))
             ) {
-                currentSources.delete(source)
-                onComplete(source, reverse(targetsOf[source]))
-                delete targetsOf[source]
-                numCompleted++
+                yield {
+                    type: 'complete',
+                    source,
+                    targets: reverse(item.targets),
+                }
+                delete table[source]
             } else {
                 const cursor = edges[0]['cursor']
-                cursors[source] = cursor
+                table[source].cursor = cursor
             }
         }
-        while (currentSources.size < QUERY_BATCH_SIZE) {
-            const source = sources.pop()
-            if (source == null) break
-            currentSources.add(source)
-        }
+        await refillCurrentSources()
     }
     return { queriesLeft: true }
+
+    async function refillCurrentSources() {
+        while (size(table) < QUERY_BATCH_SIZE) {
+            const { value, done } = await sources.next()
+            if (done) break
+            const [source, stop] = value
+            table[source] = {
+                targets: [],
+                uid: 'a' + Math.random().toString().slice(2),
+                stopAt: stop,
+            }
+        }
+    }
 }
 
 async function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
-
-/*
-export async function getStarCounts(
-    sources: string[],
-    batchSize: number,
-    logger: (s: string) => void
-) {
-    sources = await asyncFilter(sources, async item => {
-        const lfi = (await localForage.getItem(item)) as ItemInfo
-        return lfi == null || lfi.stargazerCount == null
-    })
-    const uidOf = makeDefaultDict(makeUid)
-    for (let pointer = 0; pointer < sources.length; pointer += batchSize) {
-        logger(
-            `Getting stargazer counts ${pointer}:${
-                pointer + batchSize
-            } out of ${sources.length}`
-        )
-        const currentsources = sources.slice(pointer, pointer + batchSize)
-        const queryParts = currentsources.map(item =>
-            stargazerCountQuery(item, uidOf(item))
-        )
-        const query = `{ ${queryParts.join('\n')}\n ${rateLimitQuery} }`
-        const result = await runQuery(query)
-        if (result === failure) {
-            console.error('query failed')
-            break
-        }
-        for (const item of [...currentsources]) {
-            // TODO: Could be in a separate table for faster read/write
-            const coll_i: ItemInfo =
-                (await localForage.getItem(item)) ?? makeItemInfo(item)
-            const uid = uidOf(item)
-            if (!has(result['data'], uid)) {
-                logger(`Item ${item} caused errors`)
-                continue
-            }
-            coll_i.stargazerCount = result['data'][uid]['stargazerCount']
-            await localForage.setItem(item, coll_i)
-        }
-    }
-}
-*/
