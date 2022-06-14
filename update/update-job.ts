@@ -11,9 +11,9 @@ import { chunk, range, uniq } from 'lodash'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const expiredDate = new Date(Date.now() - WEEK)
-const DB_BATCH_SIZE = 20_000
+const LOG_FREQUENCY = 1000
 const ESTIMATED_MAX_RECORDS = 10_000_000
-const NUM_PARALLEL_PULLERS = 10
+const NUM_PARALLEL_PULLERS = 5
 
 async function main() {
     await updateEntireDb()
@@ -21,32 +21,14 @@ async function main() {
 }
 
 async function updateEntireDb() {
-    const numBatches = (ESTIMATED_MAX_RECORDS / DB_BATCH_SIZE) | 0
-    for (const i of range(numBatches)) {
-        log(('\n' + '='.repeat(80) + '\n').repeat(2))
-        log(`STARTING BATCH ${i} / ${numBatches}`)
-        for (const mode of ['stars', 'gazers'] as const) {
-            const res = await runDbBatch(mode)
-            log(res)
-            if (!res.queriesLeft) {
-                log('OUT OF QUERIES, sleeping half an hour')
-                await sleep(1000 * 60 * 30)
-            }
-            if (res.allSourcesComplete) {
-                log('WE ARE DONE')
-                return
-            }
-        }
-        log(('\n' + '='.repeat(80) + '\n').repeat(2))
-    }
+    await Promise.all([runDbBatch('gazers'), runDbBatch('stars')])
 }
 
 type Source = string
 type Target = string
 /** Find targets of missing or expired sources and update statusdb */
-async function runDbBatch(
-    mode: 'stars' | 'gazers'
-): Promise<{ queriesLeft: boolean; allSourcesComplete: boolean }> {
+async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
+    console.log('')
     const [sourceType, targetType, edgedb] =
         mode === 'stars'
             ? (['user', 'repo', starsdb] as const)
@@ -54,67 +36,35 @@ async function runDbBatch(
     let numDiscovered = 0
     let numSucceed = 0
     let numFail = 0
-    const sources: Source[] = []
-    const stopAt: Record<Source, Target> = {}
-    log('collecting sources')
-    for await (const source of statusdb.keys()) {
-        const status = await statusdb.get(source)
-        if (
-            status.type !== sourceType ||
-            status.hadError ||
-            (status.lastPulled && new Date(status.lastPulled) > expiredDate)
-        )
-            continue
-
-        // if (sources.length % 100_000 === 0)
-        //     log(`gathered ${sources.length} sources`)
-        sources.push(source)
-        if (sources.length >= DB_BATCH_SIZE) break
-    }
-    if (sources.length === 0)
-        return { queriesLeft: true, allSourcesComplete: true }
+    const sourcesGen = keyGenerator(sourceType, edgedb)
     await Promise.all(
-        sources.map(async source => {
-            try {
-                const targets = await edgedb.get(source)
-                stopAt[source] = targets[targets.length - 1]
-            } catch {}
+        Array.from({ length: NUM_PARALLEL_PULLERS }, async () => {
+            const targetsGen = getAllTargets({
+                mode,
+                sources: sourcesGen,
+            })
+            for await (const res of targetsGen) {
+                if (res.type === 'complete') {
+                    onComplete(res.source, res.targets)
+                } else {
+                    onFail(res.source)
+                }
+            }
         })
     )
-    log(
-        `${Object.keys(stopAt).length}/${
-            sources.length
-        } queries will stop early`
-    )
-    log(`updating edgedb from ${sources[0]} to ${sources.at(-1)}`)
-    // log('_'.repeat(sources.length))
-    const chunks = chunk(sources, (sources.length / NUM_PARALLEL_PULLERS) | 0)
-    const responses = await Promise.all(
-        chunks.map(ch =>
-            getAllTargets({
-                mode,
-                sources: ch,
-                logger: () => {},
-                stopAt,
-                onComplete,
-                onFail,
-            })
-        )
-    )
-    const queriesLeft = responses.every(r => r.queriesLeft)
-    log('batch done')
-    log(`${numDiscovered} new targets discovered`)
-    return { queriesLeft, allSourcesComplete: false }
 
-    async function onComplete(source: string, targets: string[]) {
+    async function onComplete(source: Source, targets: Target[]) {
+        // console.log('success:', { source, targets })
         numSucceed++
         logBatchProgress()
-        const finalTargets =
-            source in stopAt
-                ? uniq([...(await edgedb.get(source)), ...targets])
-                : targets
-
-        // process.stdout.write('.')
+        let oldTargets: Target[] = []
+        try {
+            oldTargets = await edgedb.get(source)
+        } catch {}
+        const finalTargets = uniq([...oldTargets, ...targets])
+        const char = source.includes('/') ? '.' : ','
+        // dots are repos; commas are users; Xs are failures
+        process.stdout.write(char)
         statusdb.put(source, {
             hadError: false,
             lastPulled: new Date().toISOString(),
@@ -138,17 +88,18 @@ async function runDbBatch(
     }
 
     function logBatchProgress() {
-        if ((numSucceed + numFail) % ((DB_BATCH_SIZE / 20) | 0) === 0) {
+        if ((numSucceed + numFail) % LOG_FREQUENCY === 0) {
             log(
-                `\t ${numSucceed} success + ${numFail} fail out of ${sources.length}`
+                `\t ${numSucceed} success, ${numFail} fail, ${numDiscovered} discovered`
             )
         }
     }
 
     async function onFail(source: string) {
+        // console.log('failure:', { source })
         numFail++
         logBatchProgress()
-        // process.stdout.write('X')
+        process.stdout.write('X')
         statusdb.put(source, {
             hadError: true,
             lastPulled: new Date().toISOString(),
@@ -157,14 +108,25 @@ async function runDbBatch(
     }
 }
 
-/** Find gazers of missing or expired repos, and update statusdb */
-async function updateGazers() {
-    // throw new Error('Function not implemented.')
-}
-
-/** Recompute costar graph with new data */
-async function updateCostars() {
-    // throw new Error('Function not implemented.')
+async function* keyGenerator(
+    sourceType: 'user' | 'repo',
+    edgedb: typeof starsdb | typeof gazersdb
+): AsyncGenerator<[string, string | undefined]> {
+    for await (const source of statusdb.keys()) {
+        const status = await statusdb.get(source)
+        if (
+            status.type !== sourceType ||
+            status.hadError ||
+            (status.lastPulled && new Date(status.lastPulled) > expiredDate)
+        )
+            continue
+        try {
+            const targets = await edgedb.get(source)
+            yield [source, targets.at(-1)]
+        } catch {
+            yield [source, undefined]
+        }
+    }
 }
 
 async function sleep(ms: number) {

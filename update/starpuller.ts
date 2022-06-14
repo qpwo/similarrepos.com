@@ -15,6 +15,7 @@ type Target = string & { __?: undefined }
 const MAX_STARS = 30_000
 const MAX_GAZERS = 30_000
 const QUERY_BATCH_SIZE = 50
+const MAX_RETRIES = 4
 
 type SourceAndStopper = [source: Source, stopper: Target | undefined]
 
@@ -35,6 +36,7 @@ export async function* getAllTargets(args: {
     sources: AsyncGenerator<SourceAndStopper> | Generator<SourceAndStopper>
 }): AsyncGenerator<YieldVal> {
     const { mode, sources } = args
+    let retryCount = 0
     const [part1, part2, makeQuery, max] =
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, MAX_STARS]
@@ -56,14 +58,34 @@ export async function* getAllTargets(args: {
             await sleep(random(500, 5000))
             continue
         }
-        if (remaining < 100) return { queriesLeft: false }
+        if (remaining < 100) {
+            console.error('OUT OF QUERIES!!')
+            return { queriesLeft: false }
+        }
         if (Math.random() < 0.01) {
-            console.log('remaining queries:', remaining)
+            console.log(new Date(), 'remaining queries:', remaining)
         }
 
         if (result === failure) {
-            console.error('query failed')
-            break
+            console.error(new Date(), 'QUERY FAILED')
+            if (retryCount > MAX_RETRIES) {
+                // get a whole new batch
+                console.log(
+                    new Date(),
+                    'retry sequence failed, getting fresh batch'
+                )
+                for (const key in table) delete table[key]
+                await refillCurrentSources()
+                continue
+            }
+            retryCount++
+            const sleepSeconds = 2 ** (retryCount + 2) * (Math.random() + 0.5)
+            console.log(
+                new Date(),
+                `query failed, sleeping ${sleepSeconds} and retrying`
+            )
+            await sleep(1000 * sleepSeconds)
+            continue
         }
         for (const [source, item] of [...entries(table)]) {
             const uid = item.uid
