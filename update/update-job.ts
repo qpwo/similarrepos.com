@@ -6,7 +6,7 @@
  */
 
 import { range, uniq } from 'lodash'
-import { gazersdb, starsdb, statusdb } from './db'
+import { gazersdb, numGazersdb, starsdb, statusdb } from './db'
 import { getAllTargets } from './starpuller'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
@@ -67,7 +67,8 @@ async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
             oldTargets = await edgedb.get(source)
         } catch {}
         const finalTargets = uniq([...oldTargets, ...targets])
-        const char = source.includes('/') ? '.' : ','
+        const isRepo = source.includes('/')
+        const char = isRepo ? '.' : ','
         // dots are repos; commas are users; Xs are failures
         process.stdout.write(char)
         statusdb.put(source, {
@@ -76,6 +77,7 @@ async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
             type: sourceType,
         })
         edgedb.put(source, finalTargets)
+        if (isRepo) numGazersdb.put(source, finalTargets.length)
         // add new targets to status db so we will fetch them later
         const targetStatuses = await statusdb.getMany(targets)
         const b = statusdb.batch()

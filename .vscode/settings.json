@@ -4,7 +4,9 @@
         "db/": true,
         "**/*.tsv": true,
         "**/*.backup": true,
-        "garbage/": true
+        "garbage/": true,
+        "ignore/gazerCount.json": true,
+        "node_modules/": true
     },
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true

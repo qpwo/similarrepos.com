@@ -14,5 +14,5 @@
         "experimentalDecorators": true,
         "noEmit": true
     },
-    "include": ["update/*.ts", "legacy/*.ts", "serve/*.ts"]
+    "include": ["update/**/*.ts", "legacy/**/*.ts", "serve/**/*.ts"]
 }
