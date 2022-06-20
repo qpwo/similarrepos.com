@@ -1,10 +1,10 @@
 import { getAllTargets } from './starpuller'
-import tokens from '../ignore/tokens.json'
-const token = tokens[0]
+import { getNumGazers } from './numGazerPuller'
 
 async function test() {
-    await testGazers()
-    await testStars()
+    // await testGazers()
+    // await testStars()
+    await testGazerPuller()
     async function testGazers() {
         function* sources() {
             for (const pair of [
@@ -33,6 +33,15 @@ async function test() {
             sources: sources(),
         }))
             console.log(JSON.stringify(res))
+    }
+    async function testGazerPuller() {
+        function* sources() {
+            for (const repo of ['preactjs/preact', 'doesnotexist/ad8193un'])
+                yield repo
+        }
+        for await (const res of getNumGazers(sources())) {
+            console.log(res)
+        }
     }
 }
 void test()

@@ -45,47 +45,24 @@ async function topSimilar(repo: string) {
     const corepos = Object.keys(costars)
     console.log(`there are ${corepos.length} corepos`)
 
-    // get total gazers of each repo
-    const result: Match[] = []
-    for (const batch of chunk(corepos, BATCH_SIZE)) {
-        console.log('doing gazercount batch')
-        for (const [repo, users1] of zip(
-            corepos,
-            await gazersdb.getMany(batch)
-        )) {
-            if (repo == null) throw Error('null repo??')
-            if (users1 == null) continue
-            result.push({
-                costars: costars[repo],
-                name: repo,
-                totalStars: users1.length,
-                score: costars[repo] / (users0.length + users1.length),
-            })
-        }
-    }
+    const numGazersArr = await numGazersdb.getMany(corepos)
+    console.log('stars of corepos:', zip(corepos, numGazersArr))
+    const result: Match[] = corepos.map((repo, i) => ({
+        costars: costars[repo],
+        name: repo,
+        totalStars: numGazersArr[i],
+        score: costars[repo] / (users0.length + numGazersArr[i]),
+    }))
     result.sort((x, y) => y.score - x.score)
 
     return result.slice(0, 20)
 }
 
-async function fillNumStars() {
-    let count = 0
-    for await (const key of gazersdb.keys()) {
-        const gazers = await gazersdb.get(key)
-        await numGazersdb.put(key, gazers.length)
-        count++
-        if (count % 100 === 0) {
-            console.log(count)
-            break
-        }
-    }
-}
-
 async function test() {
-    // const repo = 'rust-lang/rust'
-    // const res = await topSimilar(repo)
-    // console.log(res)
-    await fillNumStars()
+    const repo = 'golang/go' //'preactjs/preact'
+    const result = await topSimilar(repo)
+    console.log('repo:', repo)
+    console.log('result:', result)
 }
 
 if (process.env.test === 'yes') test()

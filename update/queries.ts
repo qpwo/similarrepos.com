@@ -26,7 +26,7 @@ export function userQuery(user: string, alias = '', cursor = '') {
     return `${alias}user(login: "${user}") { starredRepositories(last: 100${cursor}) { edges { cursor node { nameWithOwner } } } }`
 }
 
-function stargazerCountQuery(repo: string, alias = '') {
+export function stargazerCountQuery(repo: string, alias = '') {
     const [owner, name] = repo.split('/')
     if (alias) {
         alias = `${alias}: `
