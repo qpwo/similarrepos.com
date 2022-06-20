@@ -1,5 +1,5 @@
 import { chunk, range, uniq, zip } from 'lodash'
-import { gazersdb, Repo, starsdb, statusdb } from './db'
+import { gazersdb, Repo, starsdb, numGazersdb, statusdb } from './db'
 
 const BATCH_SIZE = 500
 
@@ -68,10 +68,24 @@ async function topSimilar(repo: string) {
     return result.slice(0, 20)
 }
 
+async function fillNumStars() {
+    let count = 0
+    for await (const key of gazersdb.keys()) {
+        const gazers = await gazersdb.get(key)
+        await numGazersdb.put(key, gazers.length)
+        count++
+        if (count % 100 === 0) {
+            console.log(count)
+            break
+        }
+    }
+}
+
 async function test() {
-    const repo = 'rust-lang/rust'
-    const res = await topSimilar(repo)
-    console.log(res)
+    // const repo = 'rust-lang/rust'
+    // const res = await topSimilar(repo)
+    // console.log(res)
+    await fillNumStars()
 }
 
 if (process.env.test === 'yes') test()

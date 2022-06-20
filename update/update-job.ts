@@ -5,9 +5,9 @@
  * database update logic.
  */
 
-import { starsdb, gazersdb, statusdb, Repo, User } from './db'
+import { range, uniq } from 'lodash'
+import { gazersdb, starsdb, statusdb } from './db'
 import { getAllTargets } from './starpuller'
-import { chunk, range, uniq } from 'lodash'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const expiredDate = new Date(Date.now() - WEEK)
@@ -21,14 +21,19 @@ async function main() {
 }
 
 async function updateEntireDb() {
-    await Promise.all([runDbBatch('gazers'), runDbBatch('stars')])
+    log('STARTING')
+    for (const _ in range(1000)) {
+        await Promise.all([runDbBatch('gazers'), runDbBatch('stars')])
+        log('SLEEPING TEN MINUTES')
+        await sleep(1000 * 60 * 10)
+    }
 }
 
 type Source = string
 type Target = string
 /** Find targets of missing or expired sources and update statusdb */
 async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
-    console.log('')
+    log('')
     const [sourceType, targetType, edgedb] =
         mode === 'stars'
             ? (['user', 'repo', starsdb] as const)
@@ -54,7 +59,7 @@ async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
     )
 
     async function onComplete(source: Source, targets: Target[]) {
-        // console.log('success:', { source, targets })
+        // log('success:', { source, targets })
         numSucceed++
         logBatchProgress()
         let oldTargets: Target[] = []
@@ -90,13 +95,13 @@ async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
     function logBatchProgress() {
         if ((numSucceed + numFail) % LOG_FREQUENCY === 0) {
             log(
-                `\t ${numSucceed} success, ${numFail} fail, ${numDiscovered} discovered`
+                `\n\t ${mode}: ${numSucceed.toLocaleString()} success, ${numFail.toLocaleString()} fail, ${numDiscovered.toLocaleString()} discovered\n`
             )
         }
     }
 
     async function onFail(source: string) {
-        // console.log('failure:', { source })
+        // log('failure:', { source })
         numFail++
         logBatchProgress()
         process.stdout.write('X')
@@ -112,14 +117,19 @@ async function* keyGenerator(
     sourceType: 'user' | 'repo',
     edgedb: typeof starsdb | typeof gazersdb
 ): AsyncGenerator<[string, string | undefined]> {
+    let numSkipped = 0
     for await (const source of statusdb.keys()) {
         const status = await statusdb.get(source)
         if (
-            status.type !== sourceType ||
-            status.hadError ||
-            (status.lastPulled && new Date(status.lastPulled) > expiredDate)
+            status.type !== sourceType // || status.hadError
         )
             continue
+        if (status.lastPulled && new Date(status.lastPulled) > expiredDate) {
+            numSkipped++
+            if (numSkipped % 100_000 === 0)
+                log(`skipped ${numSkipped.toLocaleString()} ${sourceType}s`)
+            continue
+        }
         try {
             const targets = await edgedb.get(source)
             yield [source, targets.at(-1)]

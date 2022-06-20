@@ -35,6 +35,10 @@ export const starsdb = db_.sublevel<User, Repo[]>('stars', {
 export const gazersdb = db_.sublevel<Repo, User[]>('gazers', {
     valueEncoding: 'json',
 })
+export const numGazersdb = db_.sublevel<Repo, number>('numgazers', {
+    valueEncoding: 'json',
+})
+
 export const statusdb = db_.sublevel<Repo | User, Status>('status', {
     valueEncoding: 'json',
 })

@@ -12,9 +12,7 @@
         "skipLibCheck": true,
         "resolveJsonModule": true,
         "experimentalDecorators": true,
-        "rootDir": ".",
         "noEmit": true
     },
-    "include": ["update/*.ts", "legacy/*.ts", "serve/*.ts"],
-    "exclude": ["node_modules", "**/node_modules/*"]
+    "include": ["update/*.ts", "legacy/*.ts", "serve/*.ts"]
 }

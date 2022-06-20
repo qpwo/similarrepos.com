@@ -9,3 +9,6 @@ const statusdb = db_.sublevel('status', { valueEncoding: 'json' })
 await starsdb.get('01brett')
 await starsdb.get('01remi')
 await statusdb.get('01remi')
+
+const ks = starsdb.keys()
+for (let i = 0; i < 20; i++) console.log(await ks.next())

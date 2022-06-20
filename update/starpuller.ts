@@ -1,7 +1,7 @@
-import { entries, keys, memoize, random, reverse, size } from 'lodash'
+import { entries, random, reverse, size } from 'lodash'
+import tokens from '../ignore/tokens.json'
 import { rateLimitQuery, repoQuery, runQuery, userQuery } from './queries'
 import { failure } from './util'
-import tokens from '../ignore/tokens.json'
 
 let tokenIdx = 0
 function getToken() {
@@ -67,7 +67,7 @@ export async function* getAllTargets(args: {
         }
 
         if (result === failure) {
-            console.error(new Date(), 'QUERY FAILED')
+            console.warn([new Date(), 'QUERY FAILED'])
             if (retryCount > MAX_RETRIES) {
                 // get a whole new batch
                 console.log(
@@ -91,8 +91,17 @@ export async function* getAllTargets(args: {
             const uid = item.uid
             if (!result?.data?.[uid]) {
                 // const errors = JSON.stringify(result?.errors)
+                // not exactly correct but eh
+                if (item.targets.length > 0) {
+                    yield {
+                        type: 'complete',
+                        source,
+                        targets: reverse(item.targets),
+                    }
+                } else {
+                    yield { type: 'fail', source }
+                }
                 delete table[source]
-                yield { type: 'fail', source }
                 continue
             }
             const edges = result['data'][uid][part1]['edges']
@@ -123,6 +132,9 @@ export async function* getAllTargets(args: {
     async function refillCurrentSources() {
         while (size(table) < QUERY_BATCH_SIZE) {
             const { value, done } = await sources.next()
+            if (Math.random() < 1 / 1000) {
+                console.log('\n current:', value)
+            }
             if (done) break
             const [source, stop] = value
             table[source] = {
