@@ -1,23 +1,18 @@
-import { chunk, range, uniq, zip } from 'lodash'
-import { gazersdb, Repo, starsdb, numGazersdb, statusdb } from './db'
+import { Costar, gazersdb, numGazersdb, Repo, starsdb } from './db'
 
-const BATCH_SIZE = 500
+const MAX_GAZER_CHECK = 1000
 
-interface Match {
-    costars: number
-    totalStars: number
-    name: Repo
-    score: number
-}
-
-async function topSimilar(repo: string) {
-    const users0_ = await gazersdb.get(repo)
-    const users0 = users0_.slice(-1000)
-    console.log(`there are ${users0.length} gazers of ${repo}`)
-    if (users0.length <= 1) return []
+export async function topSimilar(repo: string) {
+    // logDelta('start')
+    const users = (await gazersdb.get(repo)).slice(-MAX_GAZER_CHECK)
+    const numGazers0 = await numGazersdb.get(repo)
+    // logDelta('got gazers and numGazers')
+    // console.log(`there are ${users.length} gazers of ${repo}`)
+    if (users.length <= 2) return []
 
     // get similar repos
-    const coreposArr = await starsdb.getMany(users0)
+    const coreposArr = await starsdb.getMany(users)
+    // logDelta('did starsDb.getMany()')
     const costars: Record<Repo, number> = {}
     for (const repos of coreposArr) {
         if (repos == null) continue
@@ -25,44 +20,46 @@ async function topSimilar(repo: string) {
             costars[repo] = (costars[repo] ?? 0) + 1
         }
     }
-    const total = Object.keys(costars).length
-    const threshold =
-        total < 10
-            ? 0
-            : total < 100
-            ? 2
-            : total < 1000
-            ? 10
-            : total < 1000
-            ? 20
-            : 50
-
-    // delete entries with less than `threshold` costars
     for (const key of Object.keys(costars)) {
-        if (costars[key] < threshold) delete costars[key]
+        if (costars[key] <= 1) delete costars[key]
     }
+    // const costars =Object.fromObject.entries(costars).sort((x, y) => y[1] - x[1]).slice(2000).map(x=>x[0])
 
     const corepos = Object.keys(costars)
-    console.log(`there are ${corepos.length} corepos`)
+    // console.log(`there are ${corepos.length} corepos`)
 
     const numGazersArr = await numGazersdb.getMany(corepos)
-    console.log('stars of corepos:', zip(corepos, numGazersArr))
-    const result: Match[] = corepos.map((repo, i) => ({
+    // logDelta('did numGazersdb.getMany()')
+    // console.log('stars of corepos:', zip(corepos, numGazersArr))
+    const result: Costar[] = corepos.map((repo, i) => ({
         costars: costars[repo],
-        name: repo,
+        repo,
         totalStars: numGazersArr[i],
-        score: costars[repo] / (users0.length + numGazersArr[i]),
+        score: costars[repo] / (numGazers0 + numGazersArr[i]),
+        // computedAt: new Date().toISOString(),
     }))
     result.sort((x, y) => y.score - x.score)
+    // logDelta('sorted')
 
-    return result.slice(0, 20)
+    return result.slice(0, 40)
 }
 
 async function test() {
-    const repo = 'golang/go' //'preactjs/preact'
-    const result = await topSimilar(repo)
-    console.log('repo:', repo)
-    console.log('result:', result)
+    for (const repo of [
+        'qpwo/actual-malware',
+        // 'golang/go',
+        // 'preactjs/preact',
+    ]) {
+        const result = await topSimilar(repo)
+        console.log('\n\n\n\nrepo:', repo)
+        console.log('result:', result)
+    }
+}
+
+let lastLog = Date.now()
+function logDelta(msg: string) {
+    console.log(`+${Date.now() - lastLog}: `, msg)
+    lastLog = Date.now()
 }
 
 if (process.env.test === 'yes') test()

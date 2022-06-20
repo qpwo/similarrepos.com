@@ -20,7 +20,7 @@ export interface Costar {
     repo: Repo
     costars: number
     totalStars: number
-    computedAt: IsoDateString
+    score: number
 }
 
 const db_ = new ClassicLevel('db', {
@@ -42,6 +42,9 @@ export const numGazersdb = db_.sublevel<Repo, number>('numgazers', {
 export const statusdb = db_.sublevel<Repo | User, Status>('status', {
     valueEncoding: 'json',
 })
-export const costarsdb = db_.sublevel<Repo, Costar[]>('costars', {
+export const costarsdb = db_.sublevel<
+    Repo,
+    { computed: IsoDateString; costars: Costar[] }
+>('costars', {
     valueEncoding: 'json',
 })
