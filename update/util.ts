@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs'
+import { deserialize } from 'v8'
+
 export const failure = Symbol('failure')
 
 let lastLog = Date.now()
@@ -24,4 +27,10 @@ const dateOptions = {
 const formatter = new Intl.DateTimeFormat([], dateOptions)
 function prettyDate() {
     return formatter.format(new Date())
+}
+
+export function readNumGazersMap() {
+    const buf = readFileSync('numGazersMap.v8')
+    const map: Map<string, number> = deserialize(buf)
+    return map
 }

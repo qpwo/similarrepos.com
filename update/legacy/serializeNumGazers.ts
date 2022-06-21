@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from 'fs'
+import { chunk } from 'lodash'
 import { deserialize, serialize } from 'v8'
 import { numGazersdb } from '../db'
-import { log } from '../util'
+import { log, readNumGazersMap } from '../util'
 
 const numGazersMap = new Map<string, number>()
 
@@ -30,7 +31,7 @@ async function setup() {
     log('done')
 }
 
-async function test() {
+async function testRead() {
     log('about to read file')
     const buf = readFileSync('numGazersMap.v8')
     log('about to deserialize it')
@@ -39,4 +40,23 @@ async function test() {
     log('value:', map.get('preactjs/preact'))
 }
 
-if (process.env.test === 'yes') test()
+async function splitUpRepos() {
+    const numPieces = 3
+    log(`will split into ${numPieces} pieces`)
+    log('reading map')
+    const map = readNumGazersMap()
+    log('extracting keys')
+    const keys = [...map.keys()]
+    log('first key:', keys[0])
+    log('last key:', keys.at(-1))
+    log('breaking it up')
+    const batches = chunk(keys, Math.ceil(keys.length / numPieces))
+    log('writing files')
+    batches.forEach((batch, i) =>
+        writeFileSync(`repos${i}.v8`, serialize(batch))
+    )
+    log('done')
+}
+
+if (process.env.test === 'yes') testRead()
+if (process.env.splitUpRepos === 'yes') splitUpRepos()

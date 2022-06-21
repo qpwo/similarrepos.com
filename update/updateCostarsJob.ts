@@ -7,6 +7,7 @@
 
 import { topSimilar } from './compute-similar'
 import { numGazersdb, costarsdb } from './db'
+import { log } from './util'
 
 const WEEK = 1000 * 60 * 60 * 24 * 7
 const started = Date.now()
@@ -18,18 +19,15 @@ let numComplete = 0,
     numIterations = 0
 let lastOut: string | null = null
 
-const keygen = (async function* () {
+const keygen = numGazersdb.keys()
+/* (async function* () {
     for await (const key of numGazersdb.keys()) {
         yield key
     }
-})()
+})() */
 
 async function main() {
-    await Promise.all([
-        updateAllStarCounts(),
-        updateAllStarCounts(),
-        updateAllStarCounts(),
-    ])
+    await updateAllStarCounts()
 }
 
 async function updateAllStarCounts(): Promise<void> {
@@ -67,10 +65,6 @@ async function updateAllStarCounts(): Promise<void> {
             numFail++
         }
     }
-}
-
-async function log(...args: any[]) {
-    console.log(new Date(), ...args)
 }
 
 main()
