@@ -34,3 +34,7 @@ export function readNumGazersMap() {
     const map: Map<string, number> = deserialize(buf)
     return map
 }
+
+export function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
