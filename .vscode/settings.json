@@ -6,7 +6,8 @@
         "**/*.backup": true,
         "garbage/": true,
         "ignore/gazerCount.json": true,
-        "node_modules/": true
+        "node_modules/": true,
+        "**/*.v8": true
     },
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true

@@ -12,17 +12,20 @@ function test() {
 function start() {
     sourcefile=$1
     build $1
-    run
+    node --enable-source-maps build.js
+    clean
+}
+
+function start-high-ram() {
+    sourcefile=$1
+    build $1
+    node --max-old-space-size=8192 build.js
     clean
 }
 
 function build() {
     sourcefile=$1
     esbuild --bundle --platform=node --external:classic-level --sourcemap --outfile=build.js $sourcefile
-}
-
-function run() {
-    node --enable-source-maps build.js
 }
 
 function clean() {

@@ -23,7 +23,12 @@ export async function topSimilar(repo: string) {
     for (const key of Object.keys(costars)) {
         if (costars[key] <= 1) delete costars[key]
     }
-    // const costars =Object.fromObject.entries(costars).sort((x, y) => y[1] - x[1]).slice(2000).map(x=>x[0])
+    // const costars = Object.fromEntries(
+    //     Object.entries(costars)
+    //         .sort((x, y) => y[1] - x[1])
+    //         .slice(2000)
+    //         .map(x => x[0])
+    // )
 
     const corepos = Object.keys(costars)
     // console.log(`there are ${corepos.length} corepos`)
@@ -44,7 +49,7 @@ export async function topSimilar(repo: string) {
     return result.slice(0, 40)
 }
 
-async function test() {
+async function test1() {
     for (const repo of [
         'qpwo/actual-malware',
         // 'golang/go',
@@ -56,10 +61,4 @@ async function test() {
     }
 }
 
-let lastLog = Date.now()
-function logDelta(msg: string) {
-    console.log(`+${Date.now() - lastLog}: `, msg)
-    lastLog = Date.now()
-}
-
-if (process.env.test === 'yes') test()
+if (process.env.test === 'yes') test1()
