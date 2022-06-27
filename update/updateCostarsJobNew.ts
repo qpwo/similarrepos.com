@@ -63,11 +63,11 @@ async function updateAllStarCounts(): Promise<void> {
         }
         numIterations++
         try {
-            // const old = await costarsdb.get(repo)
-            // if (new Date(old.computed).getTime() > lastWeek) {
-            //     numSkipped++
-            //     continue
-            // }
+            const old = await costarsdb.get(repo)
+            if (new Date(old.computed).getTime() > lastWeek) {
+                numSkipped++
+                continue
+            }
         } catch {}
         try {
             const res = await topSimilar(repo)
