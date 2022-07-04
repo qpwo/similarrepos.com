@@ -6,13 +6,14 @@
  */
 
 import { range, uniq } from 'lodash'
-import { gazersdb, numGazersdb, starsdb, statusdb } from './db'
+import { costarsdb, gazersdb, numGazersdb, starsdb, statusdb } from './db'
 import { getAllTargets } from './starpuller'
+import { topSimilar } from './top-similar'
+import { log } from './util'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 const expiredDate = new Date(Date.now() - WEEK)
 const LOG_FREQUENCY = 1000
-const ESTIMATED_MAX_RECORDS = 10_000_000
 const NUM_PARALLEL_PULLERS = 5
 
 async function main() {
@@ -50,18 +51,23 @@ async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
             })
             for await (const res of targetsGen) {
                 if (res.type === 'complete') {
-                    onComplete(res.source, res.targets)
+                    await onComplete(res.source, res.targets, res.totalGazers)
                 } else {
-                    onFail(res.source)
+                    await onFail(res.source)
                 }
             }
         })
     )
 
-    async function onComplete(source: Source, targets: Target[]) {
+    async function onComplete(
+        source: Source,
+        targets: Target[],
+        totalGazers?: number
+    ) {
         // log('success:', { source, targets })
         numSucceed++
         logBatchProgress()
+        if (targets.length === 0) return
         let oldTargets: Target[] = []
         try {
             oldTargets = await edgedb.get(source)
@@ -91,7 +97,18 @@ async function runDbBatch(mode: 'stars' | 'gazers'): Promise<void> {
                 })
             }
         }
-        b.write()
+        await b.write()
+
+        // Update costars and numstars
+        if (totalGazers == null) return
+        await numGazersdb.put(source, totalGazers)
+        if (totalGazers <= 2) return
+        const similar = await topSimilar(source)
+        await costarsdb.put(source, {
+            computed: new Date().toISOString(),
+            costars: similar,
+        })
+        // log({ source, totalGazers, similar: similar.slice(0, 3), newTargets: targets.slice(0, 3) })
     }
 
     function logBatchProgress() {
@@ -143,10 +160,6 @@ async function* keyGenerator(
 
 async function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-async function log(...args: any[]) {
-    console.log(new Date(), ...args)
 }
 
 main()

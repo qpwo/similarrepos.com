@@ -6,7 +6,7 @@ export const failure = Symbol('failure')
 let lastLog = Date.now()
 export function log(...args: unknown[]) {
     const seconds = ((Date.now() - lastLog) / 1000).toFixed(3).padStart(6)
-    console.log(prettyDate(), currentMemory(), `+${seconds}: `, ...args)
+    console.log('\n', prettyDate(), currentMemory(), `+${seconds}: `, ...args)
     lastLog = Date.now()
 }
 

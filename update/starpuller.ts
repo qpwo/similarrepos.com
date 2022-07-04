@@ -1,7 +1,7 @@
 import { entries, random, reverse, size } from 'lodash'
 import tokens from '../ignore/tokens.json'
 import { rateLimitQuery, repoQuery, runQuery, userQuery } from './queries'
-import { failure } from './util'
+import { failure, log } from './util'
 
 let tokenIdx = 0
 function getToken() {
@@ -17,6 +17,14 @@ const MAX_GAZERS = 30_000
 const QUERY_BATCH_SIZE = 50
 const MAX_RETRIES = 4
 
+interface TableEntry {
+    targets: Target[]
+    cursor?: string
+    stopAt?: string
+    uid: string
+    totalGazers?: number
+}
+
 type SourceAndStopper = [source: Source, stopper: Target | undefined]
 
 type YieldVal =
@@ -28,6 +36,7 @@ type YieldVal =
           type: 'complete'
           source: string
           targets: Target[]
+          totalGazers?: number
       }
 
 /** oldest to newest! */
@@ -41,10 +50,8 @@ export async function* getAllTargets(args: {
         mode == 'stars'
             ? ['starredRepositories', 'nameWithOwner', userQuery, MAX_STARS]
             : ['stargazers', 'login', repoQuery, MAX_GAZERS]
-    const table: Record<
-        Source,
-        { targets: Target[]; cursor?: string; stopAt?: string; uid: string }
-    > = {}
+
+    const table: Record<Source, TableEntry> = {}
 
     await refillCurrentSources()
     while (size(table) > 0) {
@@ -59,28 +66,25 @@ export async function* getAllTargets(args: {
             continue
         }
         if (remaining < 100) {
-            console.error('OUT OF QUERIES!!')
+            log('ERROR', 'OUT OF QUERIES!!')
             return { queriesLeft: false }
         }
         if (Math.random() < 0.01) {
-            console.log(new Date(), 'remaining queries:', remaining)
+            log('remaining queries:', remaining)
         }
 
         if (result === failure) {
-            console.warn([new Date(), 'QUERY FAILED'])
+            console.warn('QUERY FAILED')
             if (retryCount > MAX_RETRIES) {
                 // get a whole new batch
-                console.log(
-                    new Date(),
-                    'retry sequence failed, getting fresh batch'
-                )
+                log('retry sequence failed, getting fresh batch')
                 for (const key in table) delete table[key]
                 await refillCurrentSources()
                 continue
             }
             retryCount++
             const sleepSeconds = 2 ** (retryCount + 2) * (Math.random() + 0.5)
-            console.log(
+            log(
                 new Date(),
                 `query failed, sleeping ${sleepSeconds} and retrying`
             )
@@ -89,6 +93,7 @@ export async function* getAllTargets(args: {
         }
         for (const [source, item] of [...entries(table)]) {
             const uid = item.uid
+            const totalGazers = result?.data?.[uid]?.stargazerCount
             if (!result?.data?.[uid]) {
                 // const errors = JSON.stringify(result?.errors)
                 // not exactly correct but eh
@@ -97,6 +102,7 @@ export async function* getAllTargets(args: {
                         type: 'complete',
                         source,
                         targets: reverse(item.targets),
+                        totalGazers,
                     }
                 } else {
                     yield { type: 'fail', source }
@@ -118,6 +124,7 @@ export async function* getAllTargets(args: {
                     type: 'complete',
                     source,
                     targets: reverse(item.targets),
+                    totalGazers,
                 }
                 delete table[source]
             } else {
@@ -133,7 +140,7 @@ export async function* getAllTargets(args: {
         while (size(table) < QUERY_BATCH_SIZE) {
             const { value, done } = await sources.next()
             if (Math.random() < 1 / 1000) {
-                console.log('\n current:', value)
+                log('\n current:', value)
             }
             if (done) break
             const [source, stop] = value

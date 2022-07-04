@@ -1,5 +1,5 @@
 import fetch from 'node-fetch'
-import { failure } from './util'
+import { failure, log } from './util'
 
 export const rateLimitQuery = 'rateLimit { cost remaining resetAt }'
 
@@ -12,7 +12,7 @@ export function repoQuery(repo: string, alias = '', cursor = '') {
     if (alias) {
         alias = `${alias}: `
     }
-    return `${alias}repository(owner: "${owner}", name: "${name}") { stargazers(last: 100${cursor}) { edges { cursor node { login } } } }`
+    return `${alias}repository(owner: "${owner}", name: "${name}") { stargazerCount stargazers(last: 100${cursor}) { edges { cursor node { login } } } }`
 }
 
 /** Returns old->new */
@@ -50,7 +50,7 @@ export async function runQuery(
         const json = await response.json()
         return json
     } catch (e) {
-        console.warn('fetch error:', (e as Error).message)
+        log('WARN', 'fetch error:', (e as Error).message)
         // console.error(e)
         return failure
     }

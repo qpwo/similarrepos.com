@@ -1,4 +1,4 @@
-import { ClassicLevel } from 'classic-level'
+import { RaveLevel } from 'rave-level'
 
 /*
 declare const brand: unique symbol
@@ -23,9 +23,9 @@ export interface Costar {
     score: number
 }
 
-const db_ = new ClassicLevel('db', {
+const db_ = new RaveLevel('db', {
     valueEncoding: 'json',
-    createIfMissing: false,
+    // createIfMissing: false,
 })
 /** Ordered from most oldest to newest!! */
 export const starsdb = db_.sublevel<User, Repo[]>('stars', {

@@ -1,6 +1,5 @@
 import dedent from 'dedent'
 import Koa from 'koa'
-import { ClassicLevel } from 'classic-level'
 
 import { costarsdb } from '../update/db'
 const thisUrl = 'http://similarrepos.com'

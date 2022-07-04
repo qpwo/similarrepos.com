@@ -5,7 +5,7 @@
  * database update logic.
  */
 
-import { topSimilar } from './compute-similar'
+import { topSimilar } from '../top-similar'
 import { numGazersdb, costarsdb } from './db'
 import { log } from './util'
 
