@@ -5,8 +5,6 @@
  * database update logic.
  */
 
-import { readFileSync } from 'fs'
-import { deserialize } from 'v8'
 import { Costar, costarsdb, gazersdb, numGazersdb, Repo, starsdb } from './db'
 import { log, readNumGazersMap } from './util'
 
@@ -62,13 +60,13 @@ async function updateAllStarCounts(): Promise<void> {
             })
         }
         numIterations++
-        try {
-            const old = await costarsdb.get(repo)
-            if (new Date(old.computed).getTime() > lastWeek) {
-                numSkipped++
-                continue
-            }
-        } catch {}
+        // try {
+        //     const old = await costarsdb.get(repo)
+        //     if (new Date(old.computed).getTime() > lastWeek) {
+        //         numSkipped++
+        //         continue
+        //     }
+        // } catch {}
         try {
             const res = await topSimilar(repo)
             lastOut = JSON.stringify({ repo, res })
@@ -102,13 +100,15 @@ async function topSimilar(repo: string) {
     }
     const corepos = Object.keys(costars)
 
-    const numGazers = numGazersMap.get(repo) ?? -1
-    const result: Costar[] = corepos.map((repo, i) => ({
-        costars: costars[repo],
-        repo,
-        totalStars: numGazers,
-        score: costars[repo] / (numGazers0 + numGazers),
-    }))
+    const result: Costar[] = corepos.map((repoB, i) => {
+        const numGazers = numGazersMap.get(repoB) ?? -1
+        return {
+            costars: costars[repoB],
+            repo: repoB,
+            totalStars: numGazers,
+            score: costars[repoB] / (numGazers0 + numGazers),
+        }
+    })
     result.sort((x, y) => y.score - x.score)
 
     return result.slice(0, 40)

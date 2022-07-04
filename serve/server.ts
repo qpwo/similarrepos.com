@@ -2,11 +2,8 @@ import dedent from 'dedent'
 import Koa from 'koa'
 import { ClassicLevel } from 'classic-level'
 
-const db_ = new ClassicLevel('db', { valueEncoding: 'json' })
-const db = db_.sublevel<string, [string, number][]>('similar', {
-    valueEncoding: 'json',
-})
-const thisUrl = 'http://localhost:3000'
+import { costarsdb } from '../update/db'
+const thisUrl = 'http://similarrepos.com'
 function getHtml(title: string, body: string) {
     return `
         <!DOCTYPE html>
@@ -40,20 +37,21 @@ function getHomePage() {
 
 async function getSimilarPage(repo: string) {
     try {
-        const similar = await db.get(repo)
+        const similar = (await costarsdb.get(repo)).costars
+        // console.log(similar)
+        const lis = similar.map(
+            ({ repo }) =>
+                `<li> ${repo}
+                <a href="https://github.com/${repo}">github</a>
+                <a href="${thisUrl}/${repo}">similar</a>
+            </li>`
+        )
         return getHtml(
             `${repo} similar repos`,
             `
             <h1>Similar repositories to ${repo}:</h1>
             <ul>
-            ${similar
-                .map(
-                    ([repo, count]) => `<li>${count} costars: ${repo}
-                <a href="https://github.com/${repo}">github</a>
-                <a href="${thisUrl}/${repo}">similar</a>
-            </li>`
-                )
-                .join('\n')}
+            ${lis.join('\n')}
             </ul>
         `
         )
