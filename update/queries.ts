@@ -1,4 +1,3 @@
-import fetch from 'node-fetch'
 import { failure, log } from './util'
 
 export const rateLimitQuery = 'rateLimit { cost remaining resetAt }'
