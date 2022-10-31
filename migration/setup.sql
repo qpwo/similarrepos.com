@@ -4,7 +4,7 @@ CREATE TABLE names_t (
 );
 
 CREATE TABLE status_t (
-    id int PRIMARY KEY REFERENCES names_t (id),
+    id int PRIMARY KEY, --REFERENCES names_t (id),
     last_pulled timestamptz,
     had_error boolean NOT NULL,
     -- it's a repo if is_user is false
@@ -12,8 +12,8 @@ CREATE TABLE status_t (
 );
 
 CREATE TABLE stars_t (
-    user_id int NOT NULL REFERENCES names_t (id),
-    repo_id int NOT NULL REFERENCES names_t (id)
+    user_id int NOT NULL, --REFERENCES names_t (id),
+    repo_id int NOT NULL --REFERENCES names_t (id)
 );
 
 
@@ -27,21 +27,30 @@ ALTER TABLE stars_t ADD CONSTRAINT stars_t_unique UNIQUE (user_id, repo_id);
 
 -- load in data:
 
+\copy names_t (id, name) FROM 'names.csv' DELIMITER ',' CSV HEADER
+
 \copy stars_t (user_id, repo_id) FROM 'stars.csv' DELIMITER ',' CSV HEADER
+
+-- Set datestyle to expect integer (e.g. 1666765738):
+
 
 \copy status_t (id, last_pulled, had_error, is_user) FROM 'status.csv' DELIMITER ',' CSV HEADER
 
-\copy names_t (id, name) FROM 'names.csv' DELIMITER ',' CSV HEADER
 
 
 -- Find similar repositories to a given repository:
-SELECT repo_id, COUNT(*) AS num_stars
-FROM stars_t
-WHERE user_id IN (
-    SELECT user_id
+WITH T AS (
+    SELECT repo_id, COUNT(*) AS num_stars
     FROM stars_t
-    WHERE repo_id = 123
+    WHERE user_id IN (
+        SELECT user_id
+        FROM stars_t
+        WHERE repo_id = 19078654
+    )
+    GROUP BY repo_id
+    ORDER BY num_stars DESC
+    LIMIT 10
 )
-GROUP BY repo_id
-ORDER BY num_stars DESC
-LIMIT 10;
+SELECT name, num_stars
+FROM T
+JOIN names_t ON T.repo_id = names_t.id;
