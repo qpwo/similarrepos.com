@@ -1,16 +1,17 @@
 import { createWriteStream, rmSync, WriteStream } from 'fs'
 import * as lev from '../update/db'
-const MAX_ROWS = 100
-const LOG_FREQUENCY = 20
+import { BigMap } from './bigmap'
+const MAX_ROWS = 100_000_000
+const LOG_FREQUENCY = 50_000
 
 // a Map can't do more than about 17 million entries apparently
-const idOf: Record<string, number> = {}
+const idOf = new BigMap() as Map<string, number>
 let nextId = 1
 function getId(name: string) {
-    const has = idOf[name]
+    const has = idOf.get(name)
     if (has) return has
     nextId += 1
-    idOf[name] = nextId
+    idOf.set(name, nextId)
     return nextId
 }
 
@@ -50,17 +51,15 @@ async function main() {
         const userId = getId(user)
         if (count++ > MAX_ROWS) break
         maybeLog()
-        for (const repo of repos) {
-            stream.write(userId + ',' + getId(repo) + '\n')
-        }
+        const lines = repos.map(r => userId + ',' + getId(r) + '\n').join('')
+        stream.write(lines)
     }
     stream.end()
 
     setOutput('names.csv')
     stream.write('id,name\n')
     count = 0
-    for (const name in idOf) {
-        const id = idOf[name]
+    for (const [name, id] of idOf.entries()) {
         stream.write(id + ',' + name + '\n')
         count++
         maybeLog()

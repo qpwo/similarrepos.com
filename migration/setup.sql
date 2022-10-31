@@ -1,5 +1,10 @@
-CREATE TABLE status_t (
+CREATE TABLE names_t (
     id int PRIMARY KEY,
+    name text NOT NULL
+);
+
+CREATE TABLE status_t (
+    id int PRIMARY KEY REFERENCES names_t (id),
     last_pulled timestamptz,
     had_error boolean NOT NULL,
     -- it's a repo if is_user is false
@@ -7,14 +12,10 @@ CREATE TABLE status_t (
 );
 
 CREATE TABLE stars_t (
-    user_id int NOT NULL,
-    repo_id int NOT NULL
+    user_id int NOT NULL REFERENCES names_t (id),
+    repo_id int NOT NULL REFERENCES names_t (id)
 );
 
-CREATE TABLE names_t (
-    id int PRIMARY KEY,
-    name text NOT NULL
-);
 
 CREATE INDEX names_t_name_idx ON names_t (name);
 

@@ -19,7 +19,7 @@ function start() {
 function start-high-ram() {
     sourcefile=$1
     build $1
-    node --max-old-space-size=8192 build.js
+    node --max-old-space-size=16000 build.js
     clean
 }
 
