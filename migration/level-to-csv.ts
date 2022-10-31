@@ -1,99 +1,89 @@
-import { createWriteStream, rmSync } from 'fs'
+import { createWriteStream, rmSync, WriteStream } from 'fs'
 import * as lev from '../update/db'
-import { BigMap } from './bigmap'
-const MAX_ROWS = 100_000_000
-const LOG_FREQUENCY = 50_000
+const MAX_ROWS = 100
+const LOG_FREQUENCY = 20
 
 // a Map can't do more than about 17 million entries apparently
-const idOf = new BigMap() as Map<string, number>
-// const idOf: Record<string, number> = {}
-// const nameOf = new Map<number, string>()
+const idOf: Record<string, number> = {}
 let nextId = 1
 function getId(name: string) {
-    const has = idOf.get(name)
-    // const has = idOf[name]
+    const has = idOf[name]
     if (has) return has
     nextId += 1
-    idOf.set(name, nextId)
-    // idOf[name] = nextId
-    // nameOf.set(nextId, name)
+    idOf[name] = nextId
     return nextId
 }
 
+const dir = 'migration/csv/'
 async function main() {
-    setOutput('statuses.csv')
-    console.log('id,last_pulled,had_error,is_user')
+    let path = dir + 'statuses.csv'
+    try {
+        rmSync(path)
+    } catch {}
+    let stream = null as unknown as WriteStream
+    setOutput('status.csv')
+    stream.write('id,last_pulled,had_error,is_user\n')
     let count = 0
     for await (const [name, val] of lev.statusdb.iterator()) {
         if (count++ > MAX_ROWS) break
-        if (count % LOG_FREQUENCY === 0)
-            console.error(
-                new Date().toLocaleTimeString(),
-                count.toLocaleString()
-            )
-        console.log(
+        maybeLog()
+        getId(name)
+        stream.write(
             getId(name) +
                 ',' +
-                (val.lastPulled ? new Date(val.lastPulled).getTime() : null) +
+                (val.lastPulled
+                    ? (new Date(val.lastPulled).getTime() / 1000) | 0
+                    : null) +
                 ',' +
                 val.hadError +
                 ',' +
-                (val.type === 'user')
+                (val.type === 'user') +
+                '\n'
         )
     }
+    stream.end()
 
     setOutput('stars.csv')
-    console.log('user_id,repo_id')
+    stream.write('user_id,repo_id\n')
     count = 0
     for await (const [user, repos] of lev.starsdb.iterator()) {
         const userId = getId(user)
         if (count++ > MAX_ROWS) break
-        if (count % LOG_FREQUENCY === 0)
-            console.error(
-                new Date().toLocaleTimeString(),
-                count.toLocaleString()
-            )
-        console.log(repos.map(r => userId + ',' + getId(r)).join('\n'))
+        maybeLog()
+        for (const repo of repos) {
+            stream.write(userId + ',' + getId(repo) + '\n')
+        }
     }
-
-    // setOutput('gazers.csv')
-    // console.log('repo_id,user_id')
-    // count = 0
-    // for await (const [repo, users] of lev.gazersdb.iterator()) {
-    //     const repoId = getId(repo)
-    //     if (count++ > MAX_ROWS) break
-    //     if (count % LOG_FREQUENCY === 0)
-    //         console.error(
-    //             new Date().toLocaleTimeString(),
-    //             count.toLocaleString()
-    //         )
-    //     console.log(users.map(u => repoId + ',' + getId(u)).join('\n'))
-    // }
+    stream.end()
 
     setOutput('names.csv')
-    console.log('id,name')
+    stream.write('id,name\n')
     count = 0
-    for (const [name, id] of idOf.entries()) {
+    for (const name in idOf) {
+        const id = idOf[name]
+        stream.write(id + ',' + name + '\n')
         count++
+        maybeLog()
+    }
+    stream.end()
+
+    console.error(new Date().toLocaleTimeString(), 'All done!')
+
+    function maybeLog() {
         if (count % LOG_FREQUENCY === 0)
             console.error(
                 new Date().toLocaleTimeString(),
                 count.toLocaleString()
             )
-        console.log(id + ',' + name)
     }
-
-    console.error(new Date().toLocaleTimeString(), 'All done!')
-}
-
-function setOutput(filename: string) {
-    const path = `./migration/csv/${filename}`
-    try {
-        rmSync(path)
-    } catch {}
-    console.error(`writing to ${path}`)
-    const access = createWriteStream(path)
-    process.stdout.write = access.write.bind(access)
+    function setOutput(filename: string) {
+        path = dir + filename
+        stream = createWriteStream(path)
+        try {
+            rmSync(path)
+        } catch {}
+        console.log(path, '---------------------')
+    }
 }
 
 void main()
