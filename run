@@ -32,5 +32,9 @@ function clean() {
     rm -rf build.js build.js.map
 }
 
+# connect to db:
+# sudo -i -u postgres
+# psql
+
 set -x
 eval "$@"  | tee -a log.log
